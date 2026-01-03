@@ -1,0 +1,360 @@
+AI Estimator Tool Web App AI 
+Agent Prompt: 
+You are a senior full-stack engineer. Build a production-ready, 
+mobile-ﬁrst, oﬄine-ﬁrst web app inspired by “handoﬀ-style job 
+packaging” workﬂows, but with an original UI/IA (do NOT copy 
+any existing product UI). Prioritize iPhone-size screens; 
+everything must work with touch, thumb reach, and intermittent 
+connectivity.
+App name: “RelayKit” (placeholder). This is a multi-tenant SaaS 
+with a strict constraint:
+- Each authenticated user belongs to exactly ONE workspace 
+(company).
+- A workspace can have multiple employees (users).
+- Employees create Jobs (estimates/deliverables), attach Assets 
+(including real photo uploads), use Templates, and generate a 
+shareable public “Package”.
+- Every Package includes a branded header using the Workspace 
+brand (logo + name + accent color). Default placeholder branding 
+exists; workspace admins can change it.
+## Required stack
+- Next.js 14+ App Router, TypeScript
+- Tailwind CSS (mobile-ﬁrst), light/dark mode
+- Supabase:
+  - Auth: email magic link
+  - Postgres tables + RLS enforcing single-workspace-per-user
+  - Storage for job photos (private)
+  - Storage for workspace logos (private)
+- PWA: Workbox SW + app shell cached for instant load, oﬄine 
+fallback
+
+
+
+- IndexedDB via `idb`: templates/recent jobs/packages + drafts + 
+sync queue + upload queue
+- Validation: Zod
+- Forms: React Hook Form
+- Testing: minimal but meaningful
+- ESLint + Prettier
+- README: setup + env vars + oﬄine/sync + RLS + invite 
+documentation
+## Environment variables
+- NEXT_PUBLIC_SUPABASE_URL=
+- NEXT_PUBLIC_SUPABASE_ANON_KEY=
+- SUPABASE_SERVICE_ROLE_KEY= (server-only; never expose 
+to browser)
+- SIGNED_URL_TTL_SECONDS=3600 (default 60 minutes)
+- APP_BASE_URL= (e.g. http://localhost:3000; used to build 
+invite links)
+- INVITE_TOKEN_PEPPER= (server-only secret used for hashing 
+invite tokens)
+## Centralized conﬁg (required)
+- Create `lib/conﬁg.ts`:
+  - exports `SIGNED_URL_TTL_SECONDS` from env with default 
+3600
+  - exports `APP_BASE_URL`
+  - exports other constants (draft debounce ms, cache names)
+- TTL must be referenced ONLY via `lib/conﬁg.ts` (no duplicated 
+constants).
+## Single-workspace-per-user enforcement (critical)
+Implement BOTH:
+1) DB-level constraint: each user can only be a member of one 
+workspace
+2) App-level UX: no workspace switcher; onboarding attaches 
+user to a single workspace
+
+
+
+DB approach:
+- `workspace_members.user_id` must be UNIQUE (one row total 
+per user), not just unique per workspace.
+- Enforce via UNIQUE index: `create unique index 
+workspace_members_user_id_unique on 
+workspace_members(user_id);`
+## Data model (Supabase tables)
+### workspaces
+- id uuid PK default gen_random_uuid()
+- name text not null
+- created_at timestamptz default now()
+- updated_at timestamptz default now()
+### workspace_members
+- workspace_id uuid references workspaces(id) on delete 
+cascade
+- user_id uuid references auth.users(id) on delete cascade
+- role text check in ('owner','admin','member') default 'member'
+- created_at timestamptz default now()
+PRIMARY KEY (workspace_id, user_id)
+PLUS: UNIQUE(user_id) to enforce one workspace per user.
+### workspace_brand
+- workspace_id uuid PK references workspaces(id) on delete 
+cascade
+- brand_name text not null
+- accent_color text null
+- logo_bucket text null
+- logo_path text null
+- updated_at timestamptz default now()
+### workspace_invites (email invites)
+- id uuid PK default gen_random_uuid()
+- workspace_id uuid not null references workspaces(id) on delete 
+cascade
+
+
+
+- email text not null
+- role text check in ('admin','member') default 'member'
+- token_hash text unique not null (store hashed token only)
+- invited_by_user_id uuid not null references auth.users(id)
+- created_at timestamptz default now()
+- expires_at timestamptz not null
+- accepted_at timestamptz null
+- accepted_by_user_id uuid null references auth.users(id)
+Constraints/policies required:
+- Prevent multiple active invites for same workspace+email 
+(unique partial index on (workspace_id,email) where accepted_at 
+is null and expires_at > now()).
+- On acceptance, ensure the accepting user is NOT already in a 
+workspace. If they are, reject with a clear message.
+### jobs
+- id uuid PK default gen_random_uuid()
+- workspace_id uuid not null references workspaces(id) on delete 
+cascade
+- created_by_user_id uuid not null references auth.users(id)
+- title text not null
+- status text check in ('draft','active','delivered','archived') default 
+'draft'
+- due_date date null
+- client_name text null
+- description_md text null
+- template_id uuid null references templates(id)
+- totals_json jsonb null
+- created_at timestamptz default now()
+- updated_at timestamptz default now()
+### job_items
+- id uuid PK default gen_random_uuid()
+- job_id uuid not null references jobs(id) on delete cascade
+- type text check in ('text','link','ﬁle','checklist') not null
+
+
+
+- title text not null
+- content_json jsonb not null
+- order_index int not null
+- created_at timestamptz default now()
+- updated_at timestamptz default now()
+### templates
+- id uuid PK default gen_random_uuid()
+- workspace_id uuid not null references workspaces(id) on delete 
+cascade
+- created_by_user_id uuid not null references auth.users(id)
+- name text not null
+- description text null
+- template_items_json jsonb not null
+- created_at timestamptz default now()
+- updated_at timestamptz default now()
+### packages
+- id uuid PK default gen_random_uuid()
+- job_id uuid not null references jobs(id) on delete cascade
+- workspace_id uuid not null references workspaces(id) on delete 
+cascade
+- public_slug text unique not null
+- is_public boolean default true
+- brand_header_json jsonb not null
+- snapshot_json jsonb not null
+- generated_at timestamptz default now()
+### ai_reference_conﬁgs (workspace-level)
+- id uuid PK default gen_random_uuid()
+- workspace_id uuid not null references workspaces(id) on delete 
+cascade
+- name text not null
+- conﬁg_json jsonb not null
+- is_active boolean default false
+- created_at timestamptz default now()
+
+
+
+- updated_at timestamptz default now()
+### template_catalog (workspace-level)
+- id uuid PK default gen_random_uuid()
+- workspace_id uuid not null references workspaces(id) on delete 
+cascade
+- title text not null
+- tags text[] default '{}'
+- summary text null
+- template_id uuid null references templates(id)
+- created_at timestamptz default now()
+- updated_at timestamptz default now()
+## Supabase Storage
+- Bucket `job-assets` (private)
+  - path: `${workspace_id}/${job_id}/${job_item_id}/${ﬁlename}`
+- Bucket `workspace-logos` (private)
+  - path: `${workspace_id}/logo/${ﬁlename}`
+File-type job_items `content_json` includes:
+- storage_bucket, storage_path, original_name, mime_type, 
+size_bytes
+- width, height (if image)
+- upload_state: queued | uploading | uploaded | failed
+IMPORTANT: never store signed URLs in DB.
+## RLS (must implement in Supabase SQL)
+- Enable RLS on all tables.
+- Helper functions:
+  - `current_workspace_id()` returns uuid:
+    - looks up workspace_id from workspace_members where 
+user_id = auth.uid()
+  - `is_member_of(workspace_id uuid)` returns boolean
+  - `is_admin_of(workspace_id uuid)` returns boolean
+Policies:
+
+
+
+- workspaces: select where id = current_workspace_id(); update 
+only if admin/owner
+- workspace_members: select for members; insert/update/delete 
+only admin/owner
+- workspace_brand: select for members; update only admin/
+owner
+- workspace_invites: select/insert/update/delete only admin/
+owner of that workspace
+- jobs/templates/ai_reference_conﬁgs/template_catalog: CRUD 
+only when workspace_id = current_workspace_id()
+- job_items: access via join to jobs.workspace_id = 
+current_workspace_id()
+- packages:
+  - member CRUD where workspace_id = current_workspace_id()
+  - public SELECT where is_public=true (safe ﬁelds only; no 
+secrets)
+Add triggers for updated_at or handle in app consistently.
+## Invite ﬂow (required)
+Admins invite by email; invitee clicks link, logs in via magic link, 
+accepts invite.
+### UX screens (mobile-ﬁrst)
+- /onboarding
+  - if user has no workspace_members row: show “Create 
+Workspace” or “Enter Invite Link” (optional)
+- /settings/members
+  - list members + roles
+  - invite member form (email, role)
+  - list pending invites, revoke invite
+- /invite/[token]
+  - if not logged in: prompt login; continue after login
+  - validate token (server)
+  - show workspace name + role; Accept button
+  - on accept:
+
+
+
+    - ensure user is not in any workspace (enforced by 
+UNIQUE(user_id))
+    - add to workspace_members
+    - mark invite accepted
+    - redirect to app
+### Backend routes (required)
+- `POST /api/invites` (admin-only)
+  - creates invite
+  - generates random token (>=32 bytes), hashes with 
+SHA-256(token + INVITE_TOKEN_PEPPER)
+  - stores token_hash and expiry (e.g., 7 days)
+  - sends email invite OR (in dev/no email conﬁgured) returns 
+invite link for copy
+  - invite link: `${APP_BASE_URL}/invite/${token}`
+- `POST /api/invites/accept`
+  - takes token, hashes it, ﬁnds invite, validates not expired/not 
+accepted
+  - checks user not already in workspace_members (unique 
+constraint)
+  - inserts workspace_members row
+  - marks invite accepted
+Email sending requirement:
+- Implement a provider abstraction (even if default is “console/log 
++ UI copy link”).
+- Document clearly in README how to plug in a real email 
+provider later.
+## Core screens
+- Home: recent jobs from IDB ﬁrst, then refresh
+- Jobs list, job create/edit (segmented Overview | Items | 
+Package)
+- Templates + builder
+- Settings:
+
+
+
+  - workspace brand settings (upload logo, name, accent color)
+  - members + invites
+  - oﬄine data controls
+- Public package page /packages/[slug] branded
+## Oﬄine-ﬁrst requirements
+### PWA service worker
+- cache app shell + oﬄine fallback
+- cache package pages + images once fetched (bounded)
+### IndexedDB
+- jobs_cache, job_drafts, templates_cache, packages_cache, 
+sync_queue, upload_queue
+### Draft persistence
+- debounced persistence; restore on reload; discard option
+### Sync queue + conﬂict
+- enqueue mutations when oﬄine/fail; process FIFO online; retry/
+backoﬀ
+- last-write-wins with updated_at; resolve UI if needed
+### Oﬄine photo uploads
+- store blobs in upload_queue while oﬄine
+- upload on reconnect; update job_item and UI state
+## Package generation + branding snapshot
+- when generating package:
+  - fetch job + items
+  - fetch workspace_brand
+  - write packages.snapshot_json (render-ready)
+  - write packages.brand_header_json snapshot:
+    - brand_name, accent_color, logo_bucket/logo_path (if set), 
+else placeholder
+## Signed URL regeneration (required; automatic)
+
+
+
+Private buckets; vend signed URLs server-side.
+Routes:
+1) `GET /api/packages/[slug]` -> safe snapshot + brand header 
+data (no secrets)
+2) `GET /api/packages/[slug]/assets`
+- validates package exists and is_public=true
+- collects asset paths from snapshot (job-assets) AND 
+workspace logo path from brand header if present (workspace-
+logos)
+- signs URLs with TTL from `lib/conﬁg.ts` 
+SIGNED_URL_TTL_SECONDS
+- returns signed_url + expires_at_unix
+Client:
+- calls assets endpoint on load
+- if image fails due to expiry/403: auto re-fetch assets and retry
+- optional proactive refresh within 5 minutes of expiry
+Security:
+- SUPABASE_SERVICE_ROLE_KEY server-only
+- basic rate limiting for assets endpoint
+## Deliverables
+1) Full Next.js repo code, all ﬁles.
+2) Supabase SQL: schema + RLS + helper functions + triggers + 
+indexes (including UNIQUE(user_id)).
+3) Storage setup notes for private buckets.
+4) PWA conﬁg + oﬄine behavior.
+5) README including:
+  - onboarding: create workspace
+  - inviting employees via email (step-by-step)
+  - troubleshooting invites (expired, already in workspace)
+  - local dev: copy invite links when email not conﬁgured
+  - how to change SIGNED_URL_TTL_SECONDS later (env var + 
+redeploy)
+
+
+
+  - oﬄine + sync behavior
+6) Optional seed data.
+## Acceptance criteria
+- Mobile-ﬁrst UI with bottom nav.
+- Oﬄine: IDB-backed lists, drafts persist, photo queue oﬄine -> 
+uploads online.
+- Invites: admin creates invite by email; invite link works login -> 
+accept -> member added; enforce one-workspace-per-user.
+- Public packages: branded header/logo, signed URLs auto-
+regenerate after expiry, oﬄine reopen if visited once.
+Now generate the entire repository: all source code, conﬁgs, SQL 
+scripts, and README.
+
+
