@@ -31,12 +31,10 @@ export default function NewJobPage() {
     resolver: zodResolver(jobSchema),
     defaultValues: {
       title: '',
-      description: '',
+      description_md: '',
       status: 'draft',
       client_name: '',
-      client_email: '',
-      client_phone: '',
-      address: '',
+      due_date: '',
     },
   });
 
@@ -103,10 +101,14 @@ export default function NewJobPage() {
     setIsSubmitting(true);
 
     try {
+      const payload = {
+        ...data,
+        due_date: data.due_date || undefined,
+      };
       const jobId = crypto.randomUUID();
       const jobData = {
         id: jobId,
-        ...data,
+        ...payload,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -115,7 +117,7 @@ export default function NewJobPage() {
         const response = await fetch('/api/jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) throw new Error('Failed to create job');
@@ -127,7 +129,8 @@ export default function NewJobPage() {
           for (const photo of photos) {
             const formData = new FormData();
             formData.append('file', photo);
-            formData.append('job_id', createdJobId);
+            formData.append('jobId', createdJobId);
+            formData.append('jobItemId', 'general');
 
             try {
               await fetch('/api/uploads', {
@@ -216,13 +219,15 @@ export default function NewJobPage() {
             </label>
             <textarea
               id="description"
-              {...register('description')}
+              {...register('description_md')}
               rows={4}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               placeholder="Full kitchen renovation including cabinets, countertops, and appliances..."
             />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.description.message}</p>
+            {errors.description_md && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                {errors.description_md.message}
+              </p>
             )}
           </div>
 
@@ -243,51 +248,34 @@ export default function NewJobPage() {
           </div>
 
           <div>
-            <label htmlFor="client_email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Client Email
+            <label htmlFor="due_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Due Date
             </label>
             <input
-              id="client_email"
-              type="email"
-              {...register('client_email')}
+              id="due_date"
+              type="date"
+              {...register('due_date')}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="john@example.com"
             />
-            {errors.client_email && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.client_email.message}</p>
+            {errors.due_date && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.due_date.message}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="client_phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Client Phone
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Status
             </label>
-            <input
-              id="client_phone"
-              type="tel"
-              {...register('client_phone')}
+            <select
+              id="status"
+              {...register('status')}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="(555) 123-4567"
-            />
-            {errors.client_phone && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.client_phone.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Address
-            </label>
-            <input
-              id="address"
-              type="text"
-              {...register('address')}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="123 Main St, City, State 12345"
-            />
-            {errors.address && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.address.message}</p>
-            )}
+            >
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="delivered">Delivered</option>
+              <option value="archived">Archived</option>
+            </select>
           </div>
 
           <div>

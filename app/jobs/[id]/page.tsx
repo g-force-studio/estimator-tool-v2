@@ -137,9 +137,13 @@ export default function JobDetailPage() {
     setIsSubmitting(true);
 
     try {
+      const payload = {
+        ...data,
+        due_date: data.due_date || undefined,
+      };
       const updatedJob = {
         ...job,
-        ...data,
+        ...payload,
         updated_at: new Date().toISOString(),
       };
 
@@ -147,7 +151,7 @@ export default function JobDetailPage() {
         const response = await fetch(`/api/jobs/${jobId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) throw new Error('Failed to update job');
@@ -158,7 +162,8 @@ export default function JobDetailPage() {
           for (const photo of photos) {
             const formData = new FormData();
             formData.append('file', photo);
-            formData.append('job_id', jobId);
+            formData.append('jobId', jobId);
+            formData.append('jobItemId', 'general');
 
             try {
               await fetch('/api/uploads', {
@@ -246,6 +251,51 @@ export default function JobDetailPage() {
     }
   };
 
+  const handleSubmitJob = async () => {
+    if (!confirm('Submit this job? This will mark it as delivered.')) return;
+
+    try {
+      const payload = {
+        status: 'delivered',
+        due_date: job?.due_date || undefined,
+      };
+
+      if (isOnline) {
+        const response = await fetch(`/api/jobs/${jobId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) throw new Error('Failed to submit job');
+
+        const result = await response.json();
+        setJob(result);
+        await updateJob(result);
+      } else {
+        const updatedJob = {
+          ...job,
+          ...payload,
+          updated_at: new Date().toISOString(),
+        };
+
+        await updateJob(updatedJob);
+        await addToSyncQueue({
+          id: crypto.randomUUID(),
+          operation: 'update',
+          table: 'jobs',
+          data: updatedJob,
+          created_at: Date.now(),
+          retry_count: 0,
+        });
+        setJob(updatedJob as Job);
+      }
+    } catch (error) {
+      console.error('Error submitting job:', error);
+      alert('Failed to submit job. Please try again.');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -291,10 +341,10 @@ export default function JobDetailPage() {
               </p>
             </div>
 
-            {job.description && (
+            {job.description_md && (
               <div>
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</h3>
-                <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{job.description}</p>
+                <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{job.description_md}</p>
               </div>
             )}
 
@@ -303,32 +353,25 @@ export default function JobDetailPage() {
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</h3>
                 <span className={`inline-block px-2 py-1 text-xs rounded ${
                   job.status === 'draft' ? 'bg-gray-200 text-gray-800' :
-                  job.status === 'sent' ? 'bg-blue-200 text-blue-800' :
-                  job.status === 'approved' ? 'bg-green-200 text-green-800' :
+                  job.status === 'active' ? 'bg-blue-200 text-blue-800' :
+                  job.status === 'delivered' ? 'bg-green-200 text-green-800' :
                   'bg-red-200 text-red-800'
                 }`}>
                   {job.status}
                 </span>
               </div>
+              {job.due_date && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</h3>
+                  <span className="text-sm text-gray-900 dark:text-white">{job.due_date}</span>
+                </div>
+              )}
             </div>
 
             {job.client_name && (
               <div>
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Client</h3>
                 <p className="text-gray-900 dark:text-white">{job.client_name}</p>
-                {job.client_email && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{job.client_email}</p>
-                )}
-                {job.client_phone && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{job.client_phone}</p>
-                )}
-              </div>
-            )}
-
-            {job.address && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</h3>
-                <p className="text-gray-900 dark:text-white">{job.address}</p>
               </div>
             )}
 
@@ -348,22 +391,34 @@ export default function JobDetailPage() {
               </div>
             )}
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex flex-wrap gap-3 pt-4">
               <button
                 onClick={() => router.back()}
-                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="flex-1 min-w-[120px] px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Back
               </button>
               <button
+                onClick={() => router.push('/')}
+                className="flex-1 min-w-[120px] px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Home
+              </button>
+              <button
                 onClick={() => setIsEditing(true)}
-                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 min-w-[120px] px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Edit
               </button>
               <button
+                onClick={handleSubmitJob}
+                className="flex-1 min-w-[120px] px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              >
+                Submit
+              </button>
+              <button
                 onClick={handleDelete}
-                className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="min-w-[120px] px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
                 Delete
               </button>
@@ -392,7 +447,7 @@ export default function JobDetailPage() {
               </label>
               <textarea
                 id="description"
-                {...register('description')}
+                {...register('description_md')}
                 rows={4}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               />
@@ -408,9 +463,9 @@ export default function JobDetailPage() {
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               >
                 <option value="draft">Draft</option>
-                <option value="sent">Sent</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
+                <option value="active">Active</option>
+                <option value="delivered">Delivered</option>
+                <option value="archived">Archived</option>
               </select>
             </div>
 
@@ -427,37 +482,13 @@ export default function JobDetailPage() {
             </div>
 
             <div>
-              <label htmlFor="client_email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Client Email
+              <label htmlFor="due_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Due Date
               </label>
               <input
-                id="client_email"
-                type="email"
-                {...register('client_email')}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="client_phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Client Phone
-              </label>
-              <input
-                id="client_phone"
-                type="tel"
-                {...register('client_phone')}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Address
-              </label>
-              <input
-                id="address"
-                type="text"
-                {...register('address')}
+                id="due_date"
+                type="date"
+                {...register('due_date')}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               />
             </div>

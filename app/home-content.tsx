@@ -27,20 +27,18 @@ export function HomeContent({ workspaceId }: { workspaceId: string }) {
 
   const loadJobs = async () => {
     try {
-      const cached = await getCachedJobs();
-      if (cached.length > 0) {
-        setJobs(cached);
-        setLoading(false);
-      }
-
       if (navigator.onLine) {
         const response = await fetch('/api/jobs');
         if (response.ok) {
           const data = await response.json();
           setJobs(data.jobs);
           await cacheJobs(data.jobs);
+          return;
         }
       }
+
+      const cached = await getCachedJobs();
+      setJobs(cached);
     } catch (error) {
       console.error('Failed to load jobs:', error);
     } finally {

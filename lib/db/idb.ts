@@ -100,6 +100,25 @@ export async function cacheJobs(jobs: any[]) {
   await tx.done;
 }
 
+export async function createJob(job: any) {
+  const db = await getDB();
+  await db.put(IDB_STORES.JOBS_CACHE, job);
+}
+
+export async function getJob(id: string): Promise<any | undefined> {
+  return getCachedJob(id);
+}
+
+export async function updateJob(job: any) {
+  const db = await getDB();
+  await db.put(IDB_STORES.JOBS_CACHE, job);
+}
+
+export async function deleteJob(id: string) {
+  const db = await getDB();
+  await db.delete(IDB_STORES.JOBS_CACHE, id);
+}
+
 export async function getCachedJobs(): Promise<any[]> {
   const db = await getDB();
   return db.getAllFromIndex(IDB_STORES.JOBS_CACHE, 'by-updated');
@@ -115,9 +134,17 @@ export async function saveDraft(draft: any) {
   await db.put(IDB_STORES.JOB_DRAFTS, draft);
 }
 
+export async function addJobDraft(draft: any) {
+  return saveDraft(draft);
+}
+
 export async function getDraft(id: string): Promise<any | undefined> {
   const db = await getDB();
   return db.get(IDB_STORES.JOB_DRAFTS, id);
+}
+
+export async function getJobDraft(id: string): Promise<any | undefined> {
+  return getDraft(id);
 }
 
 export async function deleteDraft(id: string) {
@@ -125,11 +152,35 @@ export async function deleteDraft(id: string) {
   await db.delete(IDB_STORES.JOB_DRAFTS, id);
 }
 
+export async function deleteJobDraft(id: string) {
+  return deleteDraft(id);
+}
+
 export async function cacheTemplates(templates: any[]) {
   const db = await getDB();
   const tx = db.transaction(IDB_STORES.TEMPLATES_CACHE, 'readwrite');
   await Promise.all(templates.map((template) => tx.store.put(template)));
   await tx.done;
+}
+
+export async function createTemplate(template: any) {
+  const db = await getDB();
+  await db.put(IDB_STORES.TEMPLATES_CACHE, template);
+}
+
+export async function getTemplate(id: string): Promise<any | undefined> {
+  const db = await getDB();
+  return db.get(IDB_STORES.TEMPLATES_CACHE, id);
+}
+
+export async function updateTemplate(template: any) {
+  const db = await getDB();
+  await db.put(IDB_STORES.TEMPLATES_CACHE, template);
+}
+
+export async function deleteTemplate(id: string) {
+  const db = await getDB();
+  await db.delete(IDB_STORES.TEMPLATES_CACHE, id);
 }
 
 export async function getCachedTemplates(): Promise<any[]> {

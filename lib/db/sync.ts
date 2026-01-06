@@ -1,4 +1,9 @@
-import { getSyncQueue, removeSyncOperation, updateSyncOperation } from './idb';
+import {
+  getSyncQueue,
+  removeSyncOperation,
+  updateSyncOperation,
+  enqueueSyncOperation,
+} from './idb';
 import { SYNC_RETRY_DELAYS } from '../config';
 
 let isProcessing = false;
@@ -30,6 +35,18 @@ export async function processSyncQueue() {
   } finally {
     isProcessing = false;
   }
+}
+
+export async function addToSyncQueue(operation: {
+  operation: 'create' | 'update' | 'delete';
+  table: string;
+  data: any;
+}) {
+  return enqueueSyncOperation({
+    type: operation.operation,
+    entity: operation.table,
+    data: operation.data,
+  });
 }
 
 async function executeSyncOperation(operation: any) {

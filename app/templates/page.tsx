@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAllTemplates, updateTemplate } from '@/lib/db/idb';
 import { formatDateTime } from '@/lib/utils';
-import BottomNav from '@/components/bottom-nav';
+import { BottomNav } from '@/components/bottom-nav';
 
 interface Template {
   id: string;

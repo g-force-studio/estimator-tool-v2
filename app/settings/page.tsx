@@ -2,9 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import BottomNav from '@/components/bottom-nav';
+import { BottomNav } from '@/components/bottom-nav';
 
 type Tab = 'workspace' | 'members' | 'invites';
+
+type ThemePreference = 'light' | 'dark' | 'system';
+
+const THEME_STORAGE_KEY = 'relaykit-theme';
+
+const resolveTheme = (preference: ThemePreference) => {
+  if (preference === 'system') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return preference;
+};
+
+const applyTheme = (preference: ThemePreference) => {
+  const resolved = resolveTheme(preference);
+  document.documentElement.classList.toggle('dark', resolved === 'dark');
+  document.documentElement.style.colorScheme = resolved;
+};
 
 interface Workspace {
   id: string;
@@ -14,22 +31,25 @@ interface Workspace {
 
 interface WorkspaceBrand {
   workspace_id: string;
-  logo_url?: string;
-  primary_color?: string;
-  secondary_color?: string;
+  brand_name?: string;
+  accent_color?: string;
+  logo_bucket?: string;
+  logo_path?: string;
+  logo_url?: string | null;
 }
 
 interface Member {
   user_id: string;
   role: 'owner' | 'admin' | 'member';
   user_email: string;
-  joined_at: string;
+  created_at: string;
 }
 
 interface Invite {
   id: string;
   email: string;
   role: 'admin' | 'member';
+  accepted_at?: string | null;
   status: 'pending' | 'accepted' | 'expired';
   expires_at: string;
   created_at: string;
@@ -43,10 +63,10 @@ export default function SettingsPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [themePreference, setThemePreference] = useState<ThemePreference>('system');
 
   const [workspaceName, setWorkspaceName] = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#3B82F6');
-  const [secondaryColor, setSecondaryColor] = useState('#1E40AF');
+  // const [accentColor, setAccentColor] = useState('#3B82F6');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
@@ -58,6 +78,21 @@ export default function SettingsPage() {
   useEffect(() => {
     loadData();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const preference =
+      stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+    setThemePreference(preference);
+    applyTheme(preference);
+  }, []);
+
+  const handleThemeChange = (next: ThemePreference) => {
+    setThemePreference(next);
+    window.localStorage.setItem(THEME_STORAGE_KEY, next);
+    applyTheme(next);
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -74,8 +109,7 @@ export default function SettingsPage() {
         if (brandResponse.ok) {
           const brandData = await brandResponse.json();
           setBrand(brandData);
-          setPrimaryColor(brandData.primary_color || '#3B82F6');
-          setSecondaryColor(brandData.secondary_color || '#1E40AF');
+          // setAccentColor(brandData.accent_color || '#3B82F6');
           setLogoPreview(brandData.logo_url || null);
         }
       }
@@ -92,7 +126,16 @@ export default function SettingsPage() {
         const invitesResponse = await fetch('/api/invites');
         if (invitesResponse.ok) {
           const invitesData = await invitesResponse.json();
-          setInvites(invitesData);
+          const normalizedInvites = (invitesData.invites || []).map((invite: Invite) => {
+            let status: Invite['status'] = 'pending';
+            if (invite.accepted_at) {
+              status = 'accepted';
+            } else if (new Date(invite.expires_at) < new Date()) {
+              status = 'expired';
+            }
+            return { ...invite, status };
+          });
+          setInvites(normalizedInvites);
         }
       }
     } catch (error) {
@@ -134,7 +177,8 @@ export default function SettingsPage() {
 
   const handleSaveBranding = async () => {
     try {
-      let logoUrl = brand?.logo_url;
+      let logoBucket = brand?.logo_bucket;
+      let logoPath = brand?.logo_path;
 
       if (logoFile) {
         const formData = new FormData();
@@ -148,7 +192,9 @@ export default function SettingsPage() {
 
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
-          logoUrl = uploadData.url;
+          logoBucket = uploadData.bucket;
+          logoPath = uploadData.path;
+          setLogoPreview(uploadData.signed_url || null);
         }
       }
 
@@ -156,9 +202,10 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          logo_url: logoUrl,
-          primary_color: primaryColor,
-          secondary_color: secondaryColor,
+          brand_name: workspaceName,
+          // accent_color: accentColor,
+          logo_bucket: logoBucket,
+          logo_path: logoPath,
         }),
       });
 
@@ -192,7 +239,7 @@ export default function SettingsPage() {
       if (!response.ok) throw new Error('Failed to send invite');
 
       const data = await response.json();
-      setInviteLink(data.invite_link);
+      setInviteLink(data.inviteLink);
       setInviteEmail('');
       loadData();
     } catch (error) {
@@ -311,6 +358,31 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Appearance
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {(['system', 'light', 'dark'] as ThemePreference[]).map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => handleThemeChange(option)}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium ${
+                          themePreference === option
+                            ? 'border-blue-600 bg-blue-600 text-white'
+                            : 'border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {option === 'system' ? 'System' : option === 'light' ? 'Light' : 'Dark'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                    System uses your device theme. You can override it anytime.
+                  </p>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Branding</h2>
                   <div className="space-y-4">
                     <div>
@@ -331,28 +403,20 @@ export default function SettingsPage() {
                         />
                       )}
                     </div>
+                    {/* Accent color is reserved for future theming. */}
+                    {/*
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Primary Color
+                        Accent Color
                       </label>
                       <input
                         type="color"
-                        value={primaryColor}
-                        onChange={(e) => setPrimaryColor(e.target.value)}
+                        value={accentColor}
+                        onChange={(e) => setAccentColor(e.target.value)}
                         className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Secondary Color
-                      </label>
-                      <input
-                        type="color"
-                        value={secondaryColor}
-                        onChange={(e) => setSecondaryColor(e.target.value)}
-                        className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg"
-                      />
-                    </div>
+                    */}
                     <button
                       onClick={handleSaveBranding}
                       className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

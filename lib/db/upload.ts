@@ -1,4 +1,9 @@
-import { getUploadQueue, updateUploadStatus, removeUpload } from './idb';
+import {
+  getUploadQueue,
+  updateUploadStatus,
+  removeUpload,
+  enqueueUpload,
+} from './idb';
 import { SYNC_RETRY_DELAYS } from '../config';
 
 let isProcessing = false;
@@ -34,6 +39,26 @@ export async function processUploadQueue() {
   } finally {
     isProcessing = false;
   }
+}
+
+export async function addToUploadQueue(payload: any) {
+  if (payload?.file instanceof File) {
+    return enqueueUpload({
+      jobId: payload.job_id || payload.jobId || '',
+      jobItemId: payload.job_item_id || payload.jobItemId || 'general',
+      blob: payload.file,
+      filename: payload.file.name,
+      mimeType: payload.file.type,
+    });
+  }
+
+  return enqueueUpload({
+    jobId: payload.jobId,
+    jobItemId: payload.jobItemId,
+    blob: payload.blob,
+    filename: payload.filename,
+    mimeType: payload.mimeType,
+  });
 }
 
 async function uploadFile(item: any) {

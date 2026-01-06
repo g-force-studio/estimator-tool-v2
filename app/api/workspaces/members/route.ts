@@ -18,17 +18,17 @@ export async function GET(request: NextRequest) {
       .select(`
         user_id,
         role,
-        joined_at,
+        created_at,
         users:user_id (email)
       `)
-      .order('joined_at', { ascending: true });
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
 
     const formattedMembers = members.map((member: any) => ({
       user_id: member.user_id,
       role: member.role,
-      joined_at: member.joined_at,
+      created_at: member.created_at,
       user_email: member.users?.email || 'Unknown',
     }));
 
