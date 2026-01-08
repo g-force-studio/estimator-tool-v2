@@ -16,7 +16,15 @@ export const inviteSchema = z.object({
 
 export const jobSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200),
-  status: z.enum(['draft', 'active', 'delivered', 'archived']).default('draft'),
+  status: z.enum([
+    'draft',
+    'ai_pending',
+    'ai_ready',
+    'pdf_pending',
+    'complete',
+    'ai_error',
+    'pdf_error',
+  ]).default('draft'),
   due_date: z.string().optional(),
   client_name: z.string().max(200).optional(),
   description_md: z.string().optional(),

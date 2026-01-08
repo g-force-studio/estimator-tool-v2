@@ -10,6 +10,7 @@ import { addToSyncQueue } from '@/lib/db/sync';
 import { addToUploadQueue } from '@/lib/db/upload';
 import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
 import { debounce } from '@/lib/utils';
+import { OfflineIcon } from '@/components/icons';
 import type { z } from 'zod';
 
 type JobFormData = z.infer<typeof jobSchema>;
@@ -192,7 +193,10 @@ export default function NewJobPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">New Job</h1>
           {!isOnline && (
-            <span className="text-sm text-yellow-600 dark:text-yellow-400">📴 Offline</span>
+            <span className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
+              <OfflineIcon className="h-4 w-4" />
+              Offline
+            </span>
           )}
         </div>
 
@@ -272,9 +276,12 @@ export default function NewJobPage() {
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
             >
               <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="delivered">Delivered</option>
-              <option value="archived">Archived</option>
+              <option value="ai_pending">AI Pending</option>
+              <option value="ai_ready">AI Ready</option>
+              <option value="pdf_pending">PDF Pending</option>
+              <option value="complete">Complete</option>
+              <option value="ai_error">AI Error</option>
+              <option value="pdf_error">PDF Error</option>
             </select>
           </div>
 

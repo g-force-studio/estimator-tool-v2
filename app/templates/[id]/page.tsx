@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { templateSchema } from '@/lib/validations';
+import { OfflineIcon } from '@/components/icons';
 import { getTemplate, updateTemplate, deleteTemplate, createTemplate } from '@/lib/db/idb';
 import { addToSyncQueue } from '@/lib/db/sync';
 import type { z } from 'zod';
@@ -227,7 +228,10 @@ export default function TemplateEditorPage() {
             {isNew ? 'New Template' : 'Edit Template'}
           </h1>
           {!isOnline && (
-            <span className="text-sm text-yellow-600 dark:text-yellow-400">📴 Offline</span>
+            <span className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
+              <OfflineIcon className="h-4 w-4" />
+              Offline
+            </span>
           )}
         </div>
 

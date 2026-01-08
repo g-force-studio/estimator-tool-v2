@@ -124,6 +124,40 @@ Since both buckets are private, all file access must use signed URLs generated s
 - Automatically re-fetches signed URLs from `/api/packages/[slug]/assets`
 - Proactive refresh within 5 minutes of expiry (optional)
 
+## Estimates Bucket (PDFs)
+
+RelayKit uses an estimates bucket for generated PDFs.
+
+### Option A: Public bucket
+
+- Name: `estimates`
+- Make bucket public
+- Files are stored at `estimates/{job_id}/{timestamp}.pdf`
+- Public URL is used directly (fast, no signing)
+
+### Option B: Private bucket
+
+- Name: `estimates`
+- Keep bucket private
+- Files are stored at `estimates/{job_id}/{timestamp}.pdf`
+- PDFs are accessed via signed URLs (1 hour TTL) from the `pdf-link` edge function
+
+**RLS Policies (private bucket):**
+
+```sql
+CREATE POLICY "Users can read estimates"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'estimates' AND
+  (storage.foldername(name))[1] IN (
+    SELECT jobs.id::text
+    FROM jobs
+    WHERE jobs.workspace_id = current_workspace_id()
+  )
+);
+```
+
 ## Quick Setup Commands
 
 Run these SQL commands in your Supabase SQL Editor after creating the buckets:

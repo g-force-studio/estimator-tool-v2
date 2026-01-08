@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertIcon } from '@/components/icons';
 import { createClient } from '@/lib/supabase/client';
 
 export default function InvitePage({ params }: { params: { token: string } }) {
@@ -94,7 +95,9 @@ export default function InvitePage({ params }: { params: { token: string } }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="w-full max-w-md text-center space-y-4">
-          <div className="text-destructive text-5xl">⚠️</div>
+          <div className="text-destructive">
+            <AlertIcon className="h-12 w-12 mx-auto" />
+          </div>
           <h1 className="text-2xl font-bold">Invalid Invite</h1>
           <p className="text-muted-foreground">{error}</p>
           <button

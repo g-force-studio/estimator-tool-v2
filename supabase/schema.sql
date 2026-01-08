@@ -63,12 +63,22 @@ CREATE TABLE jobs (
   workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   created_by_user_id UUID NOT NULL REFERENCES auth.users(id),
   title TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('draft', 'active', 'delivered', 'archived')) DEFAULT 'draft',
+  status TEXT NOT NULL CHECK (status IN (
+    'draft',
+    'ai_pending',
+    'ai_ready',
+    'pdf_pending',
+    'complete',
+    'ai_error',
+    'pdf_error'
+  )) DEFAULT 'draft',
   due_date DATE,
   client_name TEXT,
   description_md TEXT,
   template_id UUID REFERENCES templates(id),
   totals_json JSONB,
+  pdf_url TEXT,
+  error_message TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -76,6 +86,37 @@ CREATE TABLE jobs (
 CREATE INDEX jobs_workspace_id_idx ON jobs(workspace_id);
 CREATE INDEX jobs_status_idx ON jobs(status);
 CREATE INDEX jobs_updated_at_idx ON jobs(updated_at DESC);
+
+-- Job inputs table
+CREATE TABLE job_inputs (
+  job_id UUID PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+  raw_input_json JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- AI outputs table
+CREATE TABLE ai_outputs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  ai_json JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX ai_outputs_job_id_idx ON ai_outputs(job_id);
+CREATE INDEX ai_outputs_created_at_idx ON ai_outputs(created_at DESC);
+
+-- Job files table
+CREATE TABLE job_files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('pdf', 'image')),
+  storage_path TEXT NOT NULL,
+  public_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX job_files_job_id_idx ON job_files(job_id);
+CREATE INDEX job_files_kind_idx ON job_files(kind);
 
 -- Job items table
 CREATE TABLE job_items (
@@ -229,6 +270,9 @@ ALTER TABLE workspace_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_brand ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_inputs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_outputs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
@@ -378,6 +422,65 @@ CREATE POLICY "Members can create packages"
 CREATE POLICY "Members can update workspace packages"
   ON packages FOR UPDATE
   USING (workspace_id = current_workspace_id());
+
+-- Job inputs policies
+CREATE POLICY "Members can view job inputs"
+  ON job_inputs FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM jobs
+    WHERE jobs.id = job_inputs.job_id
+    AND jobs.workspace_id = current_workspace_id()
+  ));
+
+CREATE POLICY "Members can create job inputs"
+  ON job_inputs FOR INSERT
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM jobs
+    WHERE jobs.id = job_inputs.job_id
+    AND jobs.workspace_id = current_workspace_id()
+  ));
+
+CREATE POLICY "Members can update job inputs"
+  ON job_inputs FOR UPDATE
+  USING (EXISTS (
+    SELECT 1 FROM jobs
+    WHERE jobs.id = job_inputs.job_id
+    AND jobs.workspace_id = current_workspace_id()
+  ));
+
+-- AI outputs policies
+CREATE POLICY "Members can view ai outputs"
+  ON ai_outputs FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM jobs
+    WHERE jobs.id = ai_outputs.job_id
+    AND jobs.workspace_id = current_workspace_id()
+  ));
+
+CREATE POLICY "Members can create ai outputs"
+  ON ai_outputs FOR INSERT
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM jobs
+    WHERE jobs.id = ai_outputs.job_id
+    AND jobs.workspace_id = current_workspace_id()
+  ));
+
+-- Job files policies
+CREATE POLICY "Members can view job files"
+  ON job_files FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM jobs
+    WHERE jobs.id = job_files.job_id
+    AND jobs.workspace_id = current_workspace_id()
+  ));
+
+CREATE POLICY "Members can create job files"
+  ON job_files FOR INSERT
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM jobs
+    WHERE jobs.id = job_files.job_id
+    AND jobs.workspace_id = current_workspace_id()
+  ));
 
 CREATE POLICY "Members can delete workspace packages"
   ON packages FOR DELETE

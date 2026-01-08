@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { cachePackage, getCachedPackage } from '@/lib/db/idb';
+import { PaperclipIcon } from '@/components/icons';
 
 export default function PackagePage({ params }: { params: { slug: string } }) {
   const [pkg, setPkg] = useState<any>(null);
@@ -145,8 +146,9 @@ export default function PackagePage({ params }: { params: { slug: string } }) {
                         onError={handleImageError}
                       />
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        📎 {item.content_json.original_name}
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <PaperclipIcon className="h-4 w-4" />
+                        {item.content_json.original_name}
                       </p>
                     )}
                   </div>

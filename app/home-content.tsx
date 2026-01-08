@@ -4,11 +4,15 @@ import { useEffect, useState } from 'react';
 import { getCachedJobs, cacheJobs } from '@/lib/db/idb';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
+import { ClipboardIcon, OfflineIcon } from '@/components/icons';
 
 export function HomeContent({ workspaceId }: { workspaceId: string }) {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(true);
+  const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+    : '';
 
   useEffect(() => {
     loadJobs();
@@ -46,6 +50,35 @@ export function HomeContent({ workspaceId }: { workspaceId: string }) {
     }
   };
 
+  const openPdf = async (event: React.MouseEvent, job: any) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      if (job.pdf_url) {
+        window.open(job.pdf_url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      if (!functionsBaseUrl) {
+        alert('PDF link is unavailable. Missing Supabase URL.');
+        return;
+      }
+
+      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${job.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch PDF link');
+      }
+      const data = await response.json();
+      if (data.pdf_url) {
+        window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      console.error('Failed to open PDF:', error);
+      alert('Failed to open PDF. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -57,8 +90,9 @@ export function HomeContent({ workspaceId }: { workspaceId: string }) {
   return (
     <main className="p-4 space-y-4">
       {!online && (
-        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-sm text-yellow-700 dark:text-yellow-300">
-          📡 You're offline. Showing cached data.
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-sm text-yellow-700 dark:text-yellow-300 flex items-center gap-2">
+          <OfflineIcon className="h-4 w-4" />
+          You're offline. Showing cached data.
         </div>
       )}
 
@@ -103,7 +137,18 @@ export function HomeContent({ workspaceId }: { workspaceId: string }) {
                     {job.due_date && <span>Due: {formatDate(job.due_date)}</span>}
                   </div>
                 </div>
-                <div className="text-2xl">📋</div>
+                <div className="flex items-center gap-3">
+                  {(job.pdf_url || job.status === 'complete') && (
+                    <button
+                      type="button"
+                      onClick={(event) => openPdf(event, job)}
+                      className="text-base text-primary hover:opacity-80"
+                      aria-label="Open estimate PDF"
+                    >
+                      <ClipboardIcon className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </Link>
           ))}
