@@ -15,12 +15,7 @@ export async function GET(request: NextRequest) {
 
     const { data: members, error } = await supabase
       .from('workspace_members')
-      .select(`
-        user_id,
-        role,
-        created_at,
-        users:user_id (email)
-      `)
+      .select('user_id, role, created_at, profiles!workspace_members_user_id_profiles_fkey(email)')
       .order('created_at', { ascending: true });
 
     if (error) throw error;
@@ -29,7 +24,7 @@ export async function GET(request: NextRequest) {
       user_id: member.user_id,
       role: member.role,
       created_at: member.created_at,
-      user_email: member.users?.email || 'Unknown',
+      user_email: member.profiles?.email || null,
     }));
 
     return NextResponse.json(formattedMembers);

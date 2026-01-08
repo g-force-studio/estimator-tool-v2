@@ -1,0 +1,28 @@
+Current focus:
+- Validate n8n submit flow and end-to-end estimate pipeline.
+
+What's working:
+- Jobs list/detail navigation and offline cache fallback.
+- PDF link open actions in job list/detail.
+- Job delete now works after adding missing RLS delete policy.
+
+What's broken:
+- n8n end-to-end flow still not verified.
+- Templates page import error (getAllTemplates not exported) seen in console.
+
+Latest files touched:
+- app/api/jobs/[id]/route.ts
+- app/jobs/[id]/page.tsx
+- lib/config.ts
+- supabase/migrations/20260107_normalize_job_statuses.sql
+
+Commands to run locally:
+- npm run dev
+
+Last successful end-to-end test:
+- Created a job, edited details, and navigated between Jobs and Home.
+
+Next 3 concrete steps:
+1) Verify Submit → n8n webhook and downstream AI/PDF flow.
+2) Fix templates import error in app/templates/page.tsx.
+3) Add error surfacing for ai_error/pdf_error states.

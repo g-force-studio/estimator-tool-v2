@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { ClipboardIcon, DocumentIcon, HomeIcon, SettingsIcon } from '@/components/icons';
 
 const navItems = [
-  { href: '/', label: 'Home', icon: '🏠' },
-  { href: '/jobs', label: 'Jobs', icon: '📋' },
-  { href: '/templates', label: 'Templates', icon: '📝' },
-  { href: '/settings', label: 'Settings', icon: '⚙️' },
+  { href: '/', label: 'Home', icon: HomeIcon },
+  { href: '/templates', label: 'Templates', icon: DocumentIcon },
+  { href: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
 
 export function BottomNav() {
@@ -20,6 +20,7 @@ export function BottomNav() {
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           
+          const Icon = item.icon;
           return (
             <Link
               key={item.href}
@@ -31,7 +32,7 @@ export function BottomNav() {
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <span className="text-2xl mb-1">{item.icon}</span>
+              <Icon className="h-6 w-6 mb-1" />
               <span className="text-xs font-medium">{item.label}</span>
             </Link>
           );

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
+import { createClient } from '@/lib/supabase/client';
 
 type Tab = 'workspace' | 'members' | 'invites';
 
@@ -64,6 +65,7 @@ export default function SettingsPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [themePreference, setThemePreference] = useState<ThemePreference>('system');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [workspaceName, setWorkspaceName] = useState('');
   // const [accentColor, setAccentColor] = useState('#3B82F6');
@@ -78,6 +80,17 @@ export default function SettingsPage() {
   useEffect(() => {
     loadData();
   }, [activeTab]);
+
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
+    };
+    loadCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -286,6 +299,19 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSignOut = async () => {
+    if (!confirm('Sign out of this account?')) return;
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      router.push('/auth/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      alert('Failed to sign out. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <div className="max-w-2xl mx-auto p-4">
@@ -355,6 +381,18 @@ export default function SettingsPage() {
                       Save Workspace
                     </button>
                   </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Account
+                  </h2>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    Sign Out
+                  </button>
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -438,17 +476,38 @@ export default function SettingsPage() {
                     <p className="text-gray-600 dark:text-gray-400">No members yet</p>
                   ) : (
                     <div className="space-y-3">
-                      {members.map((member) => (
+                      {[...members]
+                        .sort((a, b) => {
+                          if (a.user_id === currentUserId) return -1;
+                          if (b.user_id === currentUserId) return 1;
+                          return 0;
+                        })
+                        .map((member) => (
                         <div
                           key={member.user_id}
                           className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
                         >
                           <div>
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {member.user_email}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                              </span>
+                              {member.user_id === currentUserId && (
+                                <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-sm font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                                  You
+                                </span>
+                              )}
+                              {member.role === 'owner' && (
+                                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-sm font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                  Owner
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {member.user_email ? member.user_email : 'Email unavailable'}
                             </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {member.role}
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {member.user_id}
                             </p>
                           </div>
                           {member.role !== 'owner' && (
