@@ -73,11 +73,22 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { error } = await supabase.from('jobs').delete().eq('id', params.id);
+    const { data, error } = await supabase
+      .from('jobs')
+      .delete()
+      .eq('id', params.id)
+      .select('id')
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      return NextResponse.json(
+        { error: 'Job not deleted. Check workspace access and RLS policies.' },
+        { status: 403 }
+      );
+    }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, id: data.id });
   } catch (error: any) {
     console.error('Job delete error:', error);
     return NextResponse.json(

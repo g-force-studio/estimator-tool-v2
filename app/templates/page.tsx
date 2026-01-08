@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAllTemplates, updateTemplate } from '@/lib/db/idb';
+import { getCachedTemplates, updateTemplate } from '@/lib/db/idb';
 import { formatDateTime } from '@/lib/utils';
 import { BottomNav } from '@/components/bottom-nav';
+import { OfflineIcon } from '@/components/icons';
 
 interface Template {
   id: string;
@@ -46,7 +47,7 @@ export default function TemplatesPage() {
     const loadTemplates = async () => {
       setIsLoading(true);
       try {
-        const cachedTemplates = await getAllTemplates();
+        const cachedTemplates = await getCachedTemplates();
         if (cachedTemplates.length > 0) {
           setTemplates(cachedTemplates as Template[]);
         }
@@ -81,14 +82,18 @@ export default function TemplatesPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Templates</h1>
           {!isOnline && (
-            <span className="text-sm text-yellow-600 dark:text-yellow-400">📴 Offline</span>
+            <span className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
+              <OfflineIcon className="h-4 w-4" />
+              Offline
+            </span>
           )}
         </div>
 
         {!isOnline && (
           <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              📡 You're offline. Showing cached templates.
+            <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
+              <OfflineIcon className="h-4 w-4" />
+              You're offline. Showing cached templates.
             </p>
           </div>
         )}

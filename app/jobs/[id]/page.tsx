@@ -8,8 +8,9 @@ import { jobSchema } from '@/lib/validations';
 import { getJob, updateJob, deleteJob, addJobDraft, getJobDraft } from '@/lib/db/idb';
 import { addToSyncQueue } from '@/lib/db/sync';
 import { addToUploadQueue } from '@/lib/db/upload';
-import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
+import { DRAFT_DEBOUNCE_MS, N8N_WEBHOOK_URL } from '@/lib/config';
 import { debounce, formatDateTime } from '@/lib/utils';
+import { OfflineIcon } from '@/components/icons';
 import type { z } from 'zod';
 
 type JobFormData = z.infer<typeof jobSchema>;
@@ -19,6 +20,13 @@ interface Job extends JobFormData {
   workspace_id: string;
   created_at: string;
   updated_at: string;
+  job_items?: Array<{
+    id: string;
+    type: string;
+    title: string;
+    content_json: unknown;
+    order_index: number;
+  }>;
   photos?: Array<{ id: string; url: string; file_name: string }>;
 }
 
@@ -34,6 +42,9 @@ export default function JobDetailPage() {
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+    : '';
 
   const {
     register,
@@ -251,13 +262,69 @@ export default function JobDetailPage() {
     }
   };
 
+  const handleOpenPdf = async () => {
+    try {
+      if (job?.pdf_url) {
+        window.open(job.pdf_url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      if (!functionsBaseUrl) {
+        alert('PDF link is unavailable. Missing Supabase URL.');
+        return;
+      }
+
+      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${jobId}`);
+      if (!response.ok) throw new Error('Failed to fetch PDF link');
+      const data = await response.json();
+      if (data.pdf_url) {
+        window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      console.error('Failed to open PDF:', error);
+      alert('Failed to open PDF. Please try again.');
+    }
+  };
+
   const handleSubmitJob = async () => {
     if (!confirm('Submit this job? This will mark it as delivered.')) return;
 
     try {
       const payload = {
-        status: 'delivered',
+        status: 'ai_pending',
         due_date: job?.due_date || undefined,
+      };
+
+      const triggerWebhook = async (currentJob: Job) => {
+        if (!N8N_WEBHOOK_URL) {
+          alert('N8N webhook URL is missing. Set NEXT_PUBLIC_N8N_WEBHOOK_URL or override it in config.');
+          return;
+        }
+
+        const webhookPayload = {
+          job_id: jobId,
+          workspace_id: currentJob.workspace_id,
+          title: currentJob.title,
+          status: currentJob.status,
+          due_date: currentJob.due_date,
+          client_name: currentJob.client_name,
+          description_md: currentJob.description_md,
+          template_id: currentJob.template_id,
+          job_items: currentJob.job_items || [],
+          photos: currentJob.photos || [],
+          submitted_at: new Date().toISOString(),
+          source: 'web_app',
+        };
+
+        const response = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(webhookPayload),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to notify n8n');
+        }
       };
 
       if (isOnline) {
@@ -270,8 +337,10 @@ export default function JobDetailPage() {
         if (!response.ok) throw new Error('Failed to submit job');
 
         const result = await response.json();
-        setJob(result);
-        await updateJob(result);
+        const updatedJob = { ...job, ...result, ...payload };
+        setJob(updatedJob as Job);
+        await updateJob(updatedJob);
+        await triggerWebhook(updatedJob as Job);
       } else {
         const updatedJob = {
           ...job,
@@ -289,6 +358,7 @@ export default function JobDetailPage() {
           retry_count: 0,
         });
         setJob(updatedJob as Job);
+        alert('You are offline. The job was queued, but n8n was not notified.');
       }
     } catch (error) {
       console.error('Error submitting job:', error);
@@ -328,7 +398,10 @@ export default function JobDetailPage() {
             {isEditing ? 'Edit Job' : 'Job Details'}
           </h1>
           {!isOnline && (
-            <span className="text-sm text-yellow-600 dark:text-yellow-400">📴 Offline</span>
+            <span className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
+              <OfflineIcon className="h-4 w-4" />
+              Offline
+            </span>
           )}
         </div>
 
@@ -353,8 +426,10 @@ export default function JobDetailPage() {
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</h3>
                 <span className={`inline-block px-2 py-1 text-xs rounded ${
                   job.status === 'draft' ? 'bg-gray-200 text-gray-800' :
-                  job.status === 'active' ? 'bg-blue-200 text-blue-800' :
-                  job.status === 'delivered' ? 'bg-green-200 text-green-800' :
+                  job.status === 'ai_pending' ? 'bg-blue-200 text-blue-800' :
+                  job.status === 'ai_ready' ? 'bg-indigo-200 text-indigo-800' :
+                  job.status === 'pdf_pending' ? 'bg-amber-200 text-amber-800' :
+                  job.status === 'complete' ? 'bg-green-200 text-green-800' :
                   'bg-red-200 text-red-800'
                 }`}>
                   {job.status}
@@ -404,6 +479,14 @@ export default function JobDetailPage() {
               >
                 Home
               </button>
+              {(job.pdf_url || job.status === 'complete') && (
+                <button
+                  onClick={handleOpenPdf}
+                  className="flex-1 min-w-[120px] px-4 py-3 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 dark:border-blue-500 dark:text-blue-200 dark:hover:bg-blue-900/20"
+                >
+                  Open PDF
+                </button>
+              )}
               <button
                 onClick={() => setIsEditing(true)}
                 className="flex-1 min-w-[120px] px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -463,9 +546,12 @@ export default function JobDetailPage() {
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               >
                 <option value="draft">Draft</option>
-                <option value="active">Active</option>
-                <option value="delivered">Delivered</option>
-                <option value="archived">Archived</option>
+                <option value="ai_pending">AI Pending</option>
+                <option value="ai_ready">AI Ready</option>
+                <option value="pdf_pending">PDF Pending</option>
+                <option value="complete">Complete</option>
+                <option value="ai_error">AI Error</option>
+                <option value="pdf_error">PDF Error</option>
               </select>
             </div>
 
