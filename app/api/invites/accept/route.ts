@@ -28,11 +28,20 @@ export async function POST(request: Request) {
 
     const tokenHash = hashToken(token);
 
-    const { data: invite, error: inviteError } = await supabase
+    const { data, error: inviteError } = await supabase
       .from('workspace_invites')
       .select('*, workspaces(name)')
       .eq('token_hash', tokenHash)
       .single();
+
+    const invite = data as (null | {
+      id: string;
+      workspace_id: string;
+      role: 'admin' | 'member';
+      accepted_at: string | null;
+      expires_at: string;
+      workspaces?: { name: string } | null;
+    });
 
     if (inviteError || !invite) {
       return NextResponse.json({ error: 'Invalid invite token' }, { status: 404 });
