@@ -114,6 +114,17 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Create/edit a job with line items, then save as template and confirm it appears in Templates
     - [ ] Confirm job detail view shows line items and total
 
+- Date/Time (2026-01-09 11:10), Session Goal: Commit changes and attempt push
+  - What changed:
+    - Committed line item + template flow changes and prior workspace/labor/uploads updates
+    - Attempted `git push` but blocked by network restriction
+  - Decisions made:
+    - None
+  - Open questions / risks:
+    - Push to GitHub still pending due to network access restrictions
+  - Next actions:
+    - [ ] Retry `git push` with network access enabled
+
 ## Running TODO (prioritized)
 1) Wire n8n estimate workflow end-to-end (request, AI output, PDF, job updates)
 2) Add job estimate summary + PDF link in list/detail UI

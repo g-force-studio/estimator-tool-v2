@@ -1,26 +1,30 @@
 Current focus:
-- Verify line items persist on jobs and template save flow works; run new migration.
+- Run Supabase migration for line_item job_items and verify line item/template flows; push commits to GitHub.
 
 What's working:
-- Templates now save with items mapped to template_items_json.
-- Line item UI exists on New and Edit Job, with optional entry and no default rows.
-- Save-as-template action available via kebab menu on job pages (online + offline).
+- Templates save correctly with template_items_json mapped to items.
+- Line item UI is available on New/Edit Job with no default rows.
+- Save-as-template action is available via the kebab menu.
+- Job create/update APIs persist line items as job_items of type line_item.
 
 What's broken:
+- GitHub push blocked by network restrictions from the environment.
 - n8n end-to-end flow still not verified after recent payload changes.
 
 Latest files touched:
 - app/api/jobs/route.ts
 - app/api/jobs/[id]/route.ts
-- app/jobs/new/page.tsx
-- app/jobs/[id]/page.tsx
 - app/api/templates/route.ts
 - app/api/templates/[id]/route.ts
+- app/jobs/new/page.tsx
+- app/jobs/[id]/page.tsx
 - components/icons.tsx
 - lib/validations.ts
 - lib/supabase/database.types.ts
 - supabase/migrations/20260109_add_line_item_job_items.sql
 - supabase/schema.sql
+- NOTES.md
+- code_state.txt
 
 Commands to run locally:
 - npm run dev
@@ -31,4 +35,4 @@ Last successful end-to-end test:
 Next 3 concrete steps:
 1) Run `supabase/migrations/20260109_add_line_item_job_items.sql` in Supabase.
 2) Create/edit a job with line items; verify they persist and show in Job Details.
-3) Save job line items as a template and confirm it appears in Templates.
+3) Retry `git push` once network access is enabled.
