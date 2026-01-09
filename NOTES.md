@@ -212,6 +212,16 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Test Submit → OpenAI estimate flow with photos
     - [ ] Retry `git push` with network access enabled
 
+- Date/Time (2026-01-09 17:17), Session Goal: Unblock Vercel middleware error
+  - What changed:
+    - Added env guard in middleware to avoid crashes when Supabase env vars are missing
+  - Decisions made:
+    - Fail open (skip auth middleware) if required Supabase env vars are not configured
+  - Open questions / risks:
+    - Confirm Vercel env vars are set; redeploy to verify middleware no longer crashes
+  - Next actions:
+    - [ ] Verify Vercel deployment after middleware guard
+
 ## Running TODO (prioritized)
 1) Integrate OpenAI estimation workflow end-to-end (request, AI output, PDF, job updates)
 2) Add job estimate summary + PDF link in list/detail UI

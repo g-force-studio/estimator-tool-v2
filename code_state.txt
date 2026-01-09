@@ -1,37 +1,17 @@
 Current focus:
-- Re-run production build and verify OpenAI estimate flow after recent build-time fixes.
+- Verify Vercel deploy after middleware guard and finish OpenAI estimate flow test.
 
 What's working:
-- Type/lint issues addressed with runtime guards for cached data and safer payloads.
-- Workspace settings/brand/members API routes forced dynamic to avoid static render with cookies.
-- Login page search params wrapped in Suspense for build compatibility.
-- IDB store keys are typed with `as const`; Supabase Edge Functions excluded from TS build.
-- Edge shared Supabase helper annotated for Deno URL import/env usage.
+- Build passes locally.
+- Middleware now skips Supabase auth logic if required env vars are missing.
 
 What's broken:
-- Production build has not been re-run since the latest fixes.
+- Vercel deployment previously failed with MIDDLEWARE_INVOCATION_FAILED; needs re-test.
 - OpenAI estimate flow still not validated end-to-end.
 - GitHub push still pending (network restrictions).
 
 Latest files touched:
-- app/api/packages/[slug]/assets/route.ts
-- app/api/workspaces/brand/route.ts
-- app/api/workspaces/members/route.ts
-- app/api/workspaces/settings/route.ts
-- app/auth/login/page.tsx
-- app/home-content.tsx
-- app/jobs/[id]/page.tsx
-- app/jobs/new/page.tsx
-- app/jobs/page.tsx
-- app/packages/[slug]/page.tsx
-- app/page.tsx
-- app/settings/page.tsx
-- app/templates/[id]/page.tsx
-- app/templates/page.tsx
-- lib/config.ts
-- supabase/functions/_shared/supabase.ts
-- tsconfig.json
-- public/sw.js
+- middleware.ts
 - NOTES.md
 - code_state.txt
 
@@ -42,6 +22,6 @@ Last successful end-to-end test:
 - Line item edit/save works after RLS policy fix.
 
 Next 3 concrete steps:
-1) Run `npm run build` to confirm production build passes.
+1) Redeploy to Vercel and confirm middleware error is resolved.
 2) Test Submit → OpenAI estimate flow with photos.
 3) Retry `git push` once network access is enabled.
