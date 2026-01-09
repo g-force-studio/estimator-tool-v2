@@ -12,6 +12,22 @@ import type { z } from 'zod';
 
 type TemplateFormData = z.infer<typeof templateSchema>;
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function applyTemplateToForm(
+  data: unknown,
+  setValue: (name: keyof TemplateFormData, value: TemplateFormData[keyof TemplateFormData]) => void
+) {
+  if (!isObject(data)) return;
+  Object.entries(data).forEach(([key, value]) => {
+    if (key in templateSchema.shape) {
+      setValue(key as keyof TemplateFormData, value as TemplateFormData[keyof TemplateFormData]);
+    }
+  });
+}
+
 export default function TemplateEditorPage() {
   const router = useRouter();
   const params = useParams();
@@ -64,22 +80,14 @@ export default function TemplateEditorPage() {
         try {
           const cachedTemplate = await getTemplate(templateId);
           if (cachedTemplate) {
-            Object.entries(cachedTemplate).forEach(([key, value]) => {
-              if (key in templateSchema.shape) {
-                setValue(key as keyof TemplateFormData, value);
-              }
-            });
+            applyTemplateToForm(cachedTemplate, setValue);
           }
 
           if (isOnline) {
             const response = await fetch(`/api/templates/${templateId}`);
             if (response.ok) {
               const data = await response.json();
-              Object.entries(data).forEach(([key, value]) => {
-                if (key in templateSchema.shape) {
-                  setValue(key as keyof TemplateFormData, value);
-                }
-              });
+              applyTemplateToForm(data, setValue);
               await updateTemplate({ ...data, id: templateId });
             }
           }
@@ -122,12 +130,9 @@ export default function TemplateEditorPage() {
         } else {
           await createTemplate(templateData);
           await addToSyncQueue({
-            id: crypto.randomUUID(),
             operation: 'create',
             table: 'templates',
             data: templateData,
-            created_at: Date.now(),
-            retry_count: 0,
           });
           router.push('/templates');
         }
@@ -153,12 +158,9 @@ export default function TemplateEditorPage() {
         } else {
           await updateTemplate(updatedTemplate);
           await addToSyncQueue({
-            id: crypto.randomUUID(),
             operation: 'update',
             table: 'templates',
             data: updatedTemplate,
-            created_at: Date.now(),
-            retry_count: 0,
           });
           router.push('/templates');
         }
@@ -184,12 +186,9 @@ export default function TemplateEditorPage() {
         if (!response.ok) throw new Error('Failed to delete template');
       } else {
         await addToSyncQueue({
-          id: crypto.randomUUID(),
           operation: 'delete',
           table: 'templates',
           data: { id: templateId },
-          created_at: Date.now(),
-          retry_count: 0,
         });
       }
 

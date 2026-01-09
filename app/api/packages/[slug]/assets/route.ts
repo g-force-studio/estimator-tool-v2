@@ -2,6 +2,58 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { NextResponse } from 'next/server';
 import { SIGNED_URL_TTL_SECONDS } from '@/lib/config';
 
+type BrandHeaderJson = {
+  logo_bucket?: string;
+  logo_path?: string;
+};
+
+type SnapshotItem = {
+  type?: string;
+  content_json?: {
+    storage_bucket?: string;
+    storage_path?: string;
+  };
+};
+
+type SnapshotJson = {
+  items?: SnapshotItem[];
+};
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getBrandHeader(value: unknown): BrandHeaderJson | null {
+  if (!isObject(value)) return null;
+  return {
+    logo_bucket: typeof value.logo_bucket === 'string' ? value.logo_bucket : undefined,
+    logo_path: typeof value.logo_path === 'string' ? value.logo_path : undefined,
+  };
+}
+
+function getSnapshot(value: unknown): SnapshotJson | null {
+  if (!isObject(value)) return null;
+  const items = Array.isArray(value.items)
+    ? value.items
+        .filter((item) => isObject(item))
+        .map((item) => ({
+          type: typeof item.type === 'string' ? item.type : undefined,
+          content_json: isObject(item.content_json)
+            ? {
+                storage_bucket:
+                  typeof item.content_json.storage_bucket === 'string'
+                    ? item.content_json.storage_bucket
+                    : undefined,
+                storage_path:
+                  typeof item.content_json.storage_path === 'string' ? item.content_json.storage_path : undefined,
+              }
+            : undefined,
+        }))
+    : undefined;
+
+  return { items };
+}
+
 export async function GET(request: Request, { params }: { params: { slug: string } }) {
   try {
     const serviceClient = createServiceClient();
@@ -19,16 +71,18 @@ export async function GET(request: Request, { params }: { params: { slug: string
 
     const assetPaths: Array<{ bucket: string; path: string; type: string }> = [];
 
-    if (pkg.brand_header_json?.logo_bucket && pkg.brand_header_json?.logo_path) {
+    const brandHeader = getBrandHeader(pkg.brand_header_json);
+    if (brandHeader?.logo_bucket && brandHeader?.logo_path) {
       assetPaths.push({
-        bucket: pkg.brand_header_json.logo_bucket,
-        path: pkg.brand_header_json.logo_path,
+        bucket: brandHeader.logo_bucket,
+        path: brandHeader.logo_path,
         type: 'logo',
       });
     }
 
-    if (pkg.snapshot_json?.items) {
-      for (const item of pkg.snapshot_json.items) {
+    const snapshot = getSnapshot(pkg.snapshot_json);
+    if (snapshot?.items) {
+      for (const item of snapshot.items) {
         if (item.type === 'file' && item.content_json?.storage_bucket && item.content_json?.storage_path) {
           assetPaths.push({
             bucket: item.content_json.storage_bucket,

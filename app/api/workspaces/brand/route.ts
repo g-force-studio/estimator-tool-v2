@@ -3,6 +3,8 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { SIGNED_URL_TTL_SECONDS } from '@/lib/config';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(_request: NextRequest) {
   try {
     const supabase = createServerClient();

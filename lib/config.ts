@@ -22,7 +22,7 @@ export const IDB_STORES = {
   PACKAGES_CACHE: 'packages_cache',
   SYNC_QUEUE: 'sync_queue',
   UPLOAD_QUEUE: 'upload_queue',
-};
+} as const;
 
 export const SYNC_RETRY_DELAYS = [1000, 2000, 5000, 10000, 30000];
 

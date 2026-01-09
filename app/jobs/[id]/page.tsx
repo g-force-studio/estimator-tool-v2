@@ -29,6 +29,7 @@ interface Job extends JobFormData {
   workspace_id: string;
   created_at: string;
   updated_at: string;
+  pdf_url?: string | null;
   job_items?: Array<{
     id: string;
     type: string;
@@ -37,6 +38,60 @@ interface Job extends JobFormData {
     order_index: number;
   }>;
   photos?: Array<{ id: string; url: string; file_name: string }>;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+const JOB_STATUSES = [
+  'draft',
+  'ai_pending',
+  'ai_ready',
+  'pdf_pending',
+  'complete',
+  'ai_error',
+  'pdf_error',
+] as const;
+
+type JobStatus = (typeof JOB_STATUSES)[number];
+
+function isJobStatus(value: unknown): value is JobStatus {
+  return typeof value === 'string' && (JOB_STATUSES as readonly string[]).includes(value);
+}
+
+function toJobFromCache(value: unknown): Job | null {
+  if (!isObject(value)) return null;
+  if (
+    typeof value.id !== 'string' ||
+    typeof value.workspace_id !== 'string' ||
+    typeof value.created_at !== 'string' ||
+    typeof value.updated_at !== 'string' ||
+    typeof value.title !== 'string' ||
+    !isJobStatus(value.status)
+  ) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    workspace_id: value.workspace_id,
+    created_at: value.created_at,
+    updated_at: value.updated_at,
+    title: value.title,
+    status: value.status,
+    due_date: typeof value.due_date === 'string' ? value.due_date : undefined,
+    client_name: typeof value.client_name === 'string' ? value.client_name : undefined,
+    description_md: typeof value.description_md === 'string' ? value.description_md : undefined,
+    template_id: typeof value.template_id === 'string' ? value.template_id : undefined,
+    labor_rate: typeof value.labor_rate === 'number' ? value.labor_rate : undefined,
+    job_items: Array.isArray(value.job_items)
+      ? value.job_items.filter((item) => isObject(item)) as Job['job_items']
+      : undefined,
+    photos: Array.isArray(value.photos)
+      ? value.photos.filter((photo) => isObject(photo)) as Job['photos']
+      : undefined,
+  };
 }
 
 export default function JobDetailPage() {
@@ -124,10 +179,10 @@ export default function JobDetailPage() {
     const loadJob = async () => {
       setIsLoading(true);
       try {
-        const cachedJob = await getJob(jobId);
+        const cachedJob = toJobFromCache(await getJob(jobId));
         if (cachedJob) {
-          setJob(cachedJob as Job);
-          applyJobToForm(cachedJob as Job);
+          setJob(cachedJob);
+          applyJobToForm(cachedJob);
         }
 
         if (isOnline) {
@@ -170,17 +225,14 @@ export default function JobDetailPage() {
             method: 'POST',
             body: formData,
           });
-        } catch (error) {
-          console.error('Photo upload failed, adding to queue:', error);
-          await addToUploadQueue({
-            id: crypto.randomUUID(),
-            file: photo,
-            job_id: jobIdToUse,
-            status: 'pending',
-            created_at: Date.now(),
-          });
-        }
-      })
+          } catch (error) {
+            console.error('Photo upload failed, adding to queue:', error);
+            await addToUploadQueue({
+              file: photo,
+              job_id: jobIdToUse,
+            });
+          }
+        })
     );
 
     if (!isMountedRef.current) return;
@@ -196,11 +248,12 @@ export default function JobDetailPage() {
 
   const saveDraft = useMemo(
     () =>
-      debounce(async (data: Partial<JobFormData>) => {
+      debounce(async (data: unknown) => {
+        if (!data || typeof data !== 'object') return;
         if (isEditing) {
           await addJobDraft({
             id: jobId,
-            data,
+            data: data as Partial<JobFormData>,
             updated_at: Date.now(),
           });
         }
@@ -316,12 +369,9 @@ export default function JobDetailPage() {
         };
         await createTemplate(templateData);
         await addToSyncQueue({
-          id: crypto.randomUUID(),
           operation: 'create',
           table: 'templates',
           data: templateData,
-          created_at: Date.now(),
-          retry_count: 0,
         });
         alert('Template saved locally. It will sync when you are online.');
       }
@@ -365,22 +415,16 @@ export default function JobDetailPage() {
       } else {
         await updateJob(updatedJob);
         await addToSyncQueue({
-          id: crypto.randomUUID(),
           operation: 'update',
           table: 'jobs',
           data: updatedJob,
-          created_at: Date.now(),
-          retry_count: 0,
         });
 
         if (photos.length > 0) {
           for (const photo of photos) {
             await addToUploadQueue({
-              id: crypto.randomUUID(),
               file: photo,
               job_id: jobId,
-              status: 'pending',
-              created_at: Date.now(),
             });
           }
         }
@@ -411,12 +455,9 @@ export default function JobDetailPage() {
         if (!response.ok) throw new Error('Failed to delete job');
       } else {
         await addToSyncQueue({
-          id: crypto.randomUUID(),
           operation: 'delete',
           table: 'jobs',
           data: { id: jobId },
-          created_at: Date.now(),
-          retry_count: 0,
         });
       }
 
@@ -469,7 +510,7 @@ export default function JobDetailPage() {
         const updatedJob = result.job ? { ...job, ...result.job } : job;
         if (updatedJob) {
           setJob(updatedJob as Job);
-          await updateJob(updatedJob as Job);
+          await updateJob(updatedJob as Record<string, unknown>);
         }
         router.push('/');
       } else {
@@ -479,14 +520,11 @@ export default function JobDetailPage() {
           updated_at: new Date().toISOString(),
         };
 
-        await updateJob(updatedJob);
+        await updateJob(updatedJob as Record<string, unknown>);
         await addToSyncQueue({
-          id: crypto.randomUUID(),
           operation: 'update',
           table: 'jobs',
           data: updatedJob,
-          created_at: Date.now(),
-          retry_count: 0,
         });
         setJob(updatedJob as Job);
         alert('You are offline. The job was queued, but the estimate was not generated.');

@@ -75,10 +75,6 @@ export default function SettingsPage() {
   const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useEffect(() => {
     const loadCurrentUser = async () => {
       const supabase = createClient();
       const {
@@ -173,6 +169,10 @@ export default function SettingsPage() {
       setIsLoading(false);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

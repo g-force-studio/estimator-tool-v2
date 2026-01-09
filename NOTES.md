@@ -195,6 +195,23 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Run `npm run build` to confirm production build passes
     - [ ] Test Submit → OpenAI estimate flow with photos
 
+- Date/Time (2026-01-09 16:14), Session Goal: Fix build-time type errors and dynamic route issues
+  - What changed:
+    - Added runtime guards for cached data hydration across jobs, templates, packages, and members to satisfy strict types
+    - Removed unsupported fields from sync/upload queue payloads
+    - Marked workspace settings/brand/members API routes as dynamic to avoid static rendering failures with cookies
+    - Wrapped login search params usage in Suspense to satisfy Next.js build requirements
+    - Tightened IDB store typing with `as const` and excluded Supabase Edge Functions from TS build
+    - Added TS annotations for Deno URL imports/env usage in shared edge helper
+  - Decisions made:
+    - Prefer small runtime guards over regenerating Supabase types for cached JSON
+  - Open questions / risks:
+    - Production build has not been re-run after these fixes
+  - Next actions:
+    - [ ] Run `npm run build` to confirm production build passes
+    - [ ] Test Submit → OpenAI estimate flow with photos
+    - [ ] Retry `git push` with network access enabled
+
 ## Running TODO (prioritized)
 1) Integrate OpenAI estimation workflow end-to-end (request, AI output, PDF, job updates)
 2) Add job estimate summary + PDF link in list/detail UI

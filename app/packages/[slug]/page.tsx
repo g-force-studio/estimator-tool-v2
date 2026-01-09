@@ -44,6 +44,17 @@ type PackagePayload = {
   snapshot_json?: PackageSnapshot;
 };
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toPackagePayload(value: unknown): PackagePayload | null {
+  if (!isObject(value)) return null;
+  const brand = isObject(value.brand_header_json) ? (value.brand_header_json as PackageBrand) : undefined;
+  const snapshot = isObject(value.snapshot_json) ? (value.snapshot_json as PackageSnapshot) : undefined;
+  return { brand_header_json: brand, snapshot_json: snapshot };
+}
+
 export default function PackagePage({ params }: { params: { slug: string } }) {
   const [pkg, setPkg] = useState<PackagePayload | null>(null);
   const [assets, setAssets] = useState<PackageAsset[]>([]);
@@ -54,8 +65,11 @@ export default function PackagePage({ params }: { params: { slug: string } }) {
     try {
       const cached = await getCachedPackage(params.slug);
       if (cached) {
-        setPkg(cached.package);
-        setAssets(cached.assets || []);
+        const cachedPkg = toPackagePayload(isObject(cached) ? cached.package : null);
+        if (cachedPkg) {
+          setPkg(cachedPkg);
+        }
+        setAssets(Array.isArray(cached.assets) ? (cached.assets as PackageAsset[]) : []);
         setLoading(false);
       }
 
@@ -185,7 +199,10 @@ export default function PackagePage({ params }: { params: { slug: string } }) {
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={getSignedUrl(item.content_json.storage_bucket, item.content_json.storage_path)}
+                          src={getSignedUrl(
+                            item.content_json.storage_bucket,
+                            item.content_json.storage_path || ''
+                          )}
                           alt={item.content_json.original_name}
                           className="max-w-full h-auto rounded"
                           onError={handleImageError}

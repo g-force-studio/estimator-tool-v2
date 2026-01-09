@@ -4,6 +4,10 @@ import { BottomNav } from '@/components/bottom-nav';
 import { WorkspaceLogo } from '@/components/workspace-logo';
 import { HomeContent } from '../home-content';
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export default async function JobsPage() {
   const supabase = await createClient();
   const {
@@ -24,6 +28,11 @@ export default async function JobsPage() {
     redirect('/onboarding');
   }
 
+  const workspaceName =
+    isObject(member.workspaces) && typeof member.workspaces.name === 'string'
+      ? member.workspaces.name
+      : '';
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 bg-card border-b border-border safe-top z-40">
@@ -32,7 +41,7 @@ export default async function JobsPage() {
             <WorkspaceLogo className="h-10 w-10 rounded-md object-contain" />
             <div>
               <h1 className="text-2xl font-bold text-primary">Jobs</h1>
-              <p className="text-sm text-muted-foreground">{member.workspaces?.name}</p>
+              <p className="text-sm text-muted-foreground">{workspaceName}</p>
             </div>
           </div>
         </div>

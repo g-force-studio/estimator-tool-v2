@@ -26,6 +26,10 @@ type LineItem = {
 
 type JobDraftPayload = Partial<JobFormData> & { line_items?: LineItem[] };
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export default function NewJobPage() {
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
@@ -71,13 +75,17 @@ export default function NewJobPage() {
     const loadDraft = async () => {
       const draft = await getJobDraft('new');
       if (draft) {
-        Object.entries(draft.data).forEach(([key, value]) => {
+        const draftData = isObject(draft.data) ? (draft.data as Record<string, unknown>) : null;
+        if (!draftData) return;
+
+        Object.entries(draftData).forEach(([key, value]) => {
           if (key in jobSchema.shape) {
-            setValue(key as keyof JobFormData, value);
+            setValue(key as keyof JobFormData, value as JobFormData[keyof JobFormData]);
           }
         });
-        if (draft.data.line_items) {
-          setLineItems(draft.data.line_items as LineItem[]);
+        const cachedItems = draftData['line_items'];
+        if (Array.isArray(cachedItems)) {
+          setLineItems(cachedItems as LineItem[]);
         }
       }
     };
@@ -86,10 +94,11 @@ export default function NewJobPage() {
 
   const saveDraft = useMemo(
     () =>
-      debounce(async (data: JobDraftPayload) => {
+      debounce(async (data: unknown) => {
+        if (!data || typeof data !== 'object') return;
         await addJobDraft({
           id: 'new',
-          data,
+          data: data as JobDraftPayload,
           updated_at: Date.now(),
         });
       }, DRAFT_DEBOUNCE_MS),
@@ -125,11 +134,8 @@ export default function NewJobPage() {
         } catch (error) {
           console.error('Photo upload failed, adding to queue:', error);
           await addToUploadQueue({
-            id: crypto.randomUUID(),
             file: photo,
             job_id: jobId,
-            status: 'pending',
-            created_at: Date.now(),
           });
         }
       })
@@ -231,12 +237,9 @@ export default function NewJobPage() {
         };
         await createTemplate(templateData);
         await addToSyncQueue({
-          id: crypto.randomUUID(),
           operation: 'create',
           table: 'templates',
           data: templateData,
-          created_at: Date.now(),
-          retry_count: 0,
         });
         alert('Template saved locally. It will sync when you are online.');
       }
@@ -283,22 +286,16 @@ export default function NewJobPage() {
       } else {
         await createJob(jobData);
         await addToSyncQueue({
-          id: crypto.randomUUID(),
           operation: 'create',
           table: 'jobs',
           data: jobData,
-          created_at: Date.now(),
-          retry_count: 0,
         });
 
         if (photos.length > 0) {
           for (const photo of photos) {
             await addToUploadQueue({
-              id: crypto.randomUUID(),
               file: photo,
               job_id: jobId,
-              status: 'pending',
-              created_at: Date.now(),
             });
           }
         }

@@ -23,6 +23,34 @@ interface Template {
   updated_at: string;
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toTemplate(value: unknown): Template | null {
+  if (!isObject(value)) return null;
+  if (
+    typeof value.id !== 'string' ||
+    typeof value.workspace_id !== 'string' ||
+    typeof value.name !== 'string' ||
+    typeof value.created_at !== 'string' ||
+    typeof value.updated_at !== 'string' ||
+    !Array.isArray(value.items)
+  ) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    workspace_id: value.workspace_id,
+    name: value.name,
+    description: typeof value.description === 'string' ? value.description : undefined,
+    items: value.items as Template['items'],
+    created_at: value.created_at,
+    updated_at: value.updated_at,
+  };
+}
+
 export default function TemplatesPage() {
   const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -49,7 +77,10 @@ export default function TemplatesPage() {
       try {
         const cachedTemplates = await getCachedTemplates();
         if (cachedTemplates.length > 0) {
-          setTemplates(cachedTemplates as Template[]);
+          const safeTemplates = cachedTemplates
+            .map(toTemplate)
+            .filter((template): template is Template => template !== null);
+          setTemplates(safeTemplates);
         }
 
         if (isOnline) {

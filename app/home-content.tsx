@@ -15,6 +15,26 @@ type JobSummary = {
   pdf_url?: string | null;
 };
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toJobSummary(value: unknown): JobSummary | null {
+  if (!isObject(value)) return null;
+  if (typeof value.id !== 'string' || typeof value.title !== 'string' || typeof value.status !== 'string') {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    title: value.title,
+    status: value.status,
+    client_name: typeof value.client_name === 'string' ? value.client_name : null,
+    due_date: typeof value.due_date === 'string' ? value.due_date : null,
+    pdf_url: typeof value.pdf_url === 'string' ? value.pdf_url : null,
+  };
+}
+
 export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string }) {
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +71,8 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       }
 
       const cached = await getCachedJobs();
-      setJobs(cached);
+      const safeCached = cached.map(toJobSummary).filter((job): job is JobSummary => job !== null);
+      setJobs(safeCached);
     } catch (error) {
       console.error('Failed to load jobs:', error);
     } finally {

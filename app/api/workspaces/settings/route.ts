@@ -3,6 +3,8 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { workspaceSettingsSchema } from '@/lib/validations';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(_request: NextRequest) {
   try {
     const supabase = createServerClient();

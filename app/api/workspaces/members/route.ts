@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export async function GET(_request: NextRequest) {
   try {
     const supabase = createServerClient();
@@ -20,12 +26,15 @@ export async function GET(_request: NextRequest) {
 
     if (error) throw error;
 
-    const formattedMembers = members.map((member: { user_id: string; role: string; created_at: string; profiles?: { email?: string | null } | null }) => ({
-      user_id: member.user_id,
-      role: member.role,
-      created_at: member.created_at,
-      user_email: member.profiles?.email || null,
-    }));
+    const formattedMembers = (Array.isArray(members) ? members : []).map((member) => {
+      const profile = isObject(member.profiles) ? member.profiles : null;
+      return {
+        user_id: String(member.user_id),
+        role: String(member.role),
+        created_at: String(member.created_at),
+        user_email: typeof profile?.email === 'string' ? profile.email : null,
+      };
+    });
 
     return NextResponse.json(formattedMembers);
   } catch (error) {

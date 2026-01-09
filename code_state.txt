@@ -1,55 +1,41 @@
 Current focus:
-- Validate build and OpenAI estimate flow; push latest commits to GitHub.
+- Re-run production build and verify OpenAI estimate flow after recent build-time fixes.
 
 What's working:
-- Lint passes with no warnings.
-- Workspace settings (tax/markup/hourly rate) UI + API are wired.
-- OpenAI estimate route exists with image analysis and server-side totals.
-- Submit calls estimate route instead of n8n.
+- Type/lint issues addressed with runtime guards for cached data and safer payloads.
+- Workspace settings/brand/members API routes forced dynamic to avoid static render with cookies.
+- Login page search params wrapped in Suspense for build compatibility.
+- IDB store keys are typed with `as const`; Supabase Edge Functions excluded from TS build.
+- Edge shared Supabase helper annotated for Deno URL import/env usage.
 
 What's broken:
-- OpenAI estimate flow not yet tested end-to-end.
+- Production build has not been re-run since the latest fixes.
+- OpenAI estimate flow still not validated end-to-end.
 - GitHub push still pending (network restrictions).
 
 Latest files touched:
-- app/api/jobs/[id]/estimate/route.ts
-- app/api/jobs/[id]/route.ts
-- app/api/jobs/route.ts
-- app/api/invites/accept/route.ts
-- app/api/invites/[id]/route.ts
-- app/api/invites/route.ts
-- app/api/invites/validate/route.ts
-- app/api/packages/[slug]/route.ts
 - app/api/packages/[slug]/assets/route.ts
-- app/api/templates/route.ts
-- app/api/uploads/route.ts
-- app/api/workspaces/route.ts
 - app/api/workspaces/brand/route.ts
-- app/api/workspaces/settings/route.ts
 - app/api/workspaces/members/route.ts
+- app/api/workspaces/settings/route.ts
 - app/auth/login/page.tsx
-- app/auth/callback/route.ts
 - app/home-content.tsx
-- app/invite/[token]/page.tsx
 - app/jobs/[id]/page.tsx
 - app/jobs/new/page.tsx
-- app/onboarding/page.tsx
+- app/jobs/page.tsx
 - app/packages/[slug]/page.tsx
+- app/page.tsx
 - app/settings/page.tsx
-- components/bottom-nav.tsx
-- components/workspace-logo.tsx
-- lib/db/idb.ts
-- lib/db/sync.ts
-- lib/db/upload.ts
-- lib/utils.ts
-- lib/validations.ts
-- lib/supabase/database.types.ts
-- supabase/schema.sql
+- app/templates/[id]/page.tsx
+- app/templates/page.tsx
+- lib/config.ts
+- supabase/functions/_shared/supabase.ts
+- tsconfig.json
+- public/sw.js
 - NOTES.md
 - code_state.txt
 
 Commands to run locally:
-- npm run lint
 - npm run build
 
 Last successful end-to-end test:
