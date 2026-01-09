@@ -9,14 +9,6 @@ export const INVITE_TOKEN_PEPPER = process.env.INVITE_TOKEN_PEPPER || '';
 
 export const DRAFT_DEBOUNCE_MS = 1000;
 
-// Override with one of the URLs below for local testing if needed.
-// const N8N_WEBHOOK_URL_OVERRIDE = 'https://n8n.gforcstudio.com/webhook-test/83104867-9c32-4fa1-955a-d265245b6bff';
-const N8N_WEBHOOK_URL_OVERRIDE = 'https://n8n.gforcstudio.com/webhook-test/estimate-tool/plumbing';
-// const N8N_WEBHOOK_URL_OVERRIDE = 'https://n8n.gforcstudio.com/webhook/e50ff17e-aa51-4faa-a720-0d6683be96fd';
-// const N8N_WEBHOOK_URL_OVERRIDE = '';
-export const N8N_WEBHOOK_URL =
-  N8N_WEBHOOK_URL_OVERRIDE || process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || '';
-
 export const CACHE_NAMES = {
   APP_SHELL: 'relaykit-app-shell-v1',
   PACKAGES: 'relaykit-packages-v1',

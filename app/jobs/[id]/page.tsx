@@ -8,7 +8,7 @@ import { jobSchema } from '@/lib/validations';
 import { getJob, updateJob, deleteJob, addJobDraft, getJobDraft, createTemplate } from '@/lib/db/idb';
 import { addToSyncQueue } from '@/lib/db/sync';
 import { addToUploadQueue } from '@/lib/db/upload';
-import { DRAFT_DEBOUNCE_MS, N8N_WEBHOOK_URL } from '@/lib/config';
+import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
 import { debounce, formatDateTime } from '@/lib/utils';
 import { MoreIcon, OfflineIcon } from '@/components/icons';
 import type { z } from 'zod';
@@ -52,7 +52,6 @@ export default function JobDetailPage() {
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmittingJob, setIsSubmittingJob] = useState(false);
-  const [workspaceLaborRate, setWorkspaceLaborRate] = useState<number | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMountedRef = useRef(true);
@@ -194,24 +193,6 @@ export default function JobDetailPage() {
       await updateJob(refreshedJob);
     }
   };
-
-  useEffect(() => {
-    const loadBrand = async () => {
-      if (!isOnline) return;
-      try {
-        const response = await fetch('/api/workspaces/brand');
-        if (!response.ok) return;
-        const data = await response.json();
-        if (data?.labor_rate !== undefined && data?.labor_rate !== null) {
-          setWorkspaceLaborRate(data.labor_rate);
-        }
-      } catch (error) {
-        console.error('Failed to load workspace labor rate:', error);
-      }
-    };
-
-    loadBrand();
-  }, [isOnline]);
 
   const saveDraft = debounce(async (data: Partial<JobFormData>) => {
     if (isEditing) {
@@ -468,71 +449,29 @@ export default function JobDetailPage() {
   };
 
   const handleSubmitJob = async () => {
-    if (!confirm('Submit this job? This will mark it as delivered.')) return;
+    if (!confirm('Submit this job for an estimate?')) return;
 
     try {
       setIsSubmittingJob(true);
-      const payload = {
-        status: 'ai_pending',
-        due_date: job?.due_date || undefined,
-      };
-
-      const triggerWebhook = async (currentJob: Job) => {
-        if (!N8N_WEBHOOK_URL) {
-          alert('N8N webhook URL is missing. Set NEXT_PUBLIC_N8N_WEBHOOK_URL or override it in config.');
-          return;
-        }
-
-        const webhookPayload = {
-          job_id: jobId,
-          workspace_id: currentJob.workspace_id,
-          title: currentJob.title,
-          status: currentJob.status,
-          due_date: currentJob.due_date,
-          client_name: currentJob.client_name,
-          description_md: currentJob.description_md,
-          template_id: currentJob.template_id,
-          labor_rate:
-            currentJob.labor_rate !== undefined && currentJob.labor_rate !== null
-              ? currentJob.labor_rate
-              : workspaceLaborRate,
-          workspace_labor_rate: workspaceLaborRate,
-          job_items: currentJob.job_items || [],
-          photos: currentJob.photos || [],
-          submitted_at: new Date().toISOString(),
-          source: 'web_app',
-        };
-
-        const response = await fetch(N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(webhookPayload),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to notify n8n');
-        }
-      };
 
       if (isOnline) {
-        const response = await fetch(`/api/jobs/${jobId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+        const response = await fetch(`/api/jobs/${jobId}/estimate`, {
+          method: 'POST',
         });
 
         if (!response.ok) throw new Error('Failed to submit job');
 
         const result = await response.json();
-        const updatedJob = { ...job, ...result, ...payload };
-        setJob(updatedJob as Job);
-        await updateJob(updatedJob);
-        await triggerWebhook(updatedJob as Job);
+        const updatedJob = result.job ? { ...job, ...result.job } : job;
+        if (updatedJob) {
+          setJob(updatedJob as Job);
+          await updateJob(updatedJob as Job);
+        }
         router.push('/');
       } else {
         const updatedJob = {
           ...job,
-          ...payload,
+          status: 'ai_pending',
           updated_at: new Date().toISOString(),
         };
 
@@ -546,7 +485,7 @@ export default function JobDetailPage() {
           retry_count: 0,
         });
         setJob(updatedJob as Job);
-        alert('You are offline. The job was queued, but n8n was not notified.');
+        alert('You are offline. The job was queued, but the estimate was not generated.');
       }
     } catch (error) {
       console.error('Error submitting job:', error);
@@ -819,24 +758,6 @@ export default function JobDetailPage() {
                 <option value="ai_error">AI Error</option>
                 <option value="pdf_error">PDF Error</option>
               </select>
-            </div>
-
-            <div>
-              <label htmlFor="labor_rate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Labor Rate
-              </label>
-              <input
-                id="labor_rate"
-                type="number"
-                min="0"
-                step="0.01"
-                {...register('labor_rate', { valueAsNumber: true })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-                placeholder="85"
-              />
-              {errors.labor_rate && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.labor_rate.message}</p>
-              )}
             </div>
 
             <div>

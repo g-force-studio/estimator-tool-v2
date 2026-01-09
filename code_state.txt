@@ -1,27 +1,31 @@
 Current focus:
-- Run Supabase migration for line_item job_items and verify line item/template flows; push commits to GitHub.
+- Run workspace_settings migration, configure estimate defaults, and validate OpenAI estimate flow; push commits to GitHub.
 
 What's working:
 - Templates save correctly with template_items_json mapped to items.
 - Line item UI is available on New/Edit Job with no default rows.
 - Save-as-template action is available via the kebab menu.
 - Job create/update APIs persist line items as job_items of type line_item.
+- Line item edits save after job_items RLS policy fix.
+- Workspace settings UI/API for tax/markup/hourly rate are in place.
+- Submit now calls the OpenAI estimate route instead of n8n.
 
 What's broken:
+- OpenAI estimate flow not yet tested end-to-end.
 - GitHub push blocked by network restrictions from the environment.
-- n8n end-to-end flow still not verified after recent payload changes.
 
 Latest files touched:
-- app/api/jobs/route.ts
-- app/api/jobs/[id]/route.ts
-- app/api/templates/route.ts
-- app/api/templates/[id]/route.ts
+- app/api/jobs/[id]/estimate/route.ts
+- app/api/workspaces/route.ts
+- app/api/workspaces/settings/route.ts
 - app/jobs/new/page.tsx
 - app/jobs/[id]/page.tsx
-- components/icons.tsx
+- app/settings/page.tsx
+- lib/config.ts
 - lib/validations.ts
 - lib/supabase/database.types.ts
-- supabase/migrations/20260109_add_line_item_job_items.sql
+- supabase/migrations/20260109_add_workspace_settings.sql
+- supabase/migrations/20260109_fix_job_items_rls.sql
 - supabase/schema.sql
 - NOTES.md
 - code_state.txt
@@ -30,9 +34,9 @@ Commands to run locally:
 - npm run dev
 
 Last successful end-to-end test:
-- None yet for line items + template save.
+- Line item edit/save works after RLS policy fix.
 
 Next 3 concrete steps:
-1) Run `supabase/migrations/20260109_add_line_item_job_items.sql` in Supabase.
-2) Create/edit a job with line items; verify they persist and show in Job Details.
-3) Retry `git push` once network access is enabled.
+1) Run `supabase/migrations/20260109_add_workspace_settings.sql` in Supabase.
+2) Set tax/markup/hourly rate defaults in Settings and configure OPENAI_API_KEY.
+3) Test Submit → OpenAI estimate flow with photos, then retry `git push` once network access is enabled.

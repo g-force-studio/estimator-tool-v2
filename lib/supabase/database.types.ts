@@ -78,6 +78,32 @@ export interface Database {
           updated_at?: string
         }
       }
+      workspace_settings: {
+        Row: {
+          workspace_id: string
+          tax_rate_percent: number
+          markup_percent: number
+          hourly_rate: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          workspace_id: string
+          tax_rate_percent?: number
+          markup_percent?: number
+          hourly_rate?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          workspace_id?: string
+          tax_rate_percent?: number
+          markup_percent?: number
+          hourly_rate?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
       workspace_invites: {
         Row: {
           id: string

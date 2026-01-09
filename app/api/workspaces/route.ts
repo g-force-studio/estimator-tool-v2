@@ -52,6 +52,12 @@ export async function POST(request: Request) {
 
     if (brandError) throw brandError;
 
+    const { error: settingsError } = await supabase.from('workspace_settings').insert({
+      workspace_id: workspace.id,
+    });
+
+    if (settingsError) throw settingsError;
+
     return NextResponse.json(workspace);
   } catch (error: any) {
     console.error('Workspace creation error:', error);

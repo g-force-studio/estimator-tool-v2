@@ -125,8 +125,64 @@ Use this file to capture decisions, changes, and open questions after each worki
   - Next actions:
     - [ ] Retry `git push` with network access enabled
 
+- Date/Time (2026-01-09 08:52), Session Goal: Fix job_items RLS insert failure on line item edits
+  - What changed:
+    - Added migration to replace job_items RLS policies using is_member_of(jobs.workspace_id)
+    - Updated supabase/schema.sql job_items policy definitions to match
+    - Ran migration in Supabase and confirmed line item edit/save works
+  - Decisions made:
+    - Use is_member_of-based job_items policies for insert/update/delete
+  - Open questions / risks:
+    - None
+  - Next actions:
+    - [ ] Re-verify end-to-end n8n flow when ready
+
+- Date/Time (2026-01-09 08:55), Session Goal: Update estimation workflow plan
+  - What changed:
+    - Noted plan to replace n8n AI workflow with direct OpenAI integration in app backend (Vercel)
+  - Decisions made:
+    - Use OpenAI API directly from the backend with local env key
+  - Open questions / risks:
+    - Confirm exact OpenAI model and request/response schema to store in ai_outputs
+  - Next actions:
+    - [ ] Define OpenAI request payload and storage shape for ai_outputs
+
+- Date/Time (2026-01-09 10:30), Session Goal: Add workspace settings and OpenAI estimate pipeline
+  - What changed:
+    - Added workspace_settings table migration + schema updates with admin-only updates
+    - Added workspace settings API and Settings UI for tax/markup/hourly rate
+    - Added OpenAI estimate route with photo analysis + server-side totals rounding
+    - Updated job Submit flow to call the new estimate route and removed n8n usage
+    - Removed labor rate fields from job create/edit forms
+  - Decisions made:
+    - Use gpt-4.1-mini for draft estimates with photo analysis
+    - Store image analysis in ai_outputs.ai_json and compute totals server-side
+    - Round totals to $0.50 increments; apply tax/markup using workspace settings
+  - Open questions / risks:
+    - Ensure OPENAI_API_KEY is set in Vercel/env.local
+  - Next actions:
+    - [ ] Run `supabase/migrations/20260109_add_workspace_settings.sql` in Supabase
+    - [ ] Configure workspace tax/markup/hourly rate in Settings
+    - [ ] Test Submit → OpenAI estimate flow end-to-end
+
+- Date/Time (2026-01-09 10:46), Session Goal: Finalize OpenAI estimation + workspace settings integration
+  - What changed:
+    - Added workspace_settings table + policies and default row creation on workspace creation
+    - Implemented estimate API route using gpt-4.1-mini with image analysis and server-side totals
+    - Updated Submit flow to call the estimate route; removed n8n webhook usage
+    - Added Settings UI + API for tax/markup/hourly rate; removed job-level labor rate inputs
+  - Decisions made:
+    - Use workspace_settings (admin-only updates) for tax/markup/hourly rate
+    - Round monetary totals to $0.50 increments server-side
+  - Open questions / risks:
+    - Ensure OpenAI key is configured and estimate route tested in deployed env
+  - Next actions:
+    - [ ] Run `supabase/migrations/20260109_add_workspace_settings.sql` in Supabase
+    - [ ] Set tax/markup/hourly rate defaults in Settings
+    - [ ] Test Submit → OpenAI estimate flow with photos
+
 ## Running TODO (prioritized)
-1) Wire n8n estimate workflow end-to-end (request, AI output, PDF, job updates)
+1) Integrate OpenAI estimation workflow end-to-end (request, AI output, PDF, job updates)
 2) Add job estimate summary + PDF link in list/detail UI
 3) Add robust error surfacing for ai_error/pdf_error states
 

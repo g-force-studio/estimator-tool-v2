@@ -50,7 +50,6 @@ export default function NewJobPage() {
       status: 'draft',
       client_name: '',
       due_date: '',
-      labor_rate: undefined,
     },
   });
 
@@ -84,24 +83,6 @@ export default function NewJobPage() {
     };
     loadDraft();
   }, [setValue]);
-
-  useEffect(() => {
-    const loadBrandDefaults = async () => {
-      try {
-        const response = await fetch('/api/workspaces/brand');
-        if (!response.ok) return;
-        const data = await response.json();
-        const currentRate = getValues('labor_rate');
-        if ((currentRate === undefined || Number.isNaN(currentRate)) && data.labor_rate !== null && data.labor_rate !== undefined) {
-          setValue('labor_rate', data.labor_rate);
-        }
-      } catch (error) {
-        console.error('Failed to load workspace labor rate:', error);
-      }
-    };
-
-    loadBrandDefaults();
-  }, [getValues, setValue]);
 
   const saveDraft = debounce(async (data: JobDraftPayload) => {
     await addJobDraft({
@@ -573,24 +554,6 @@ export default function NewJobPage() {
               <option value="ai_error">AI Error</option>
               <option value="pdf_error">PDF Error</option>
             </select>
-          </div>
-
-          <div>
-            <label htmlFor="labor_rate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Labor Rate
-            </label>
-            <input
-              id="labor_rate"
-              type="number"
-              min="0"
-              step="0.01"
-              {...register('labor_rate', { valueAsNumber: true })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              placeholder="85"
-            />
-            {errors.labor_rate && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.labor_rate.message}</p>
-            )}
           </div>
 
           <div>

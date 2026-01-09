@@ -69,7 +69,9 @@ export default function SettingsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [workspaceName, setWorkspaceName] = useState('');
-  const [laborRate, setLaborRate] = useState('');
+  const [taxRate, setTaxRate] = useState('');
+  const [markupPercent, setMarkupPercent] = useState('');
+  const [hourlyRate, setHourlyRate] = useState('');
   // const [accentColor, setAccentColor] = useState('#3B82F6');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -126,9 +128,24 @@ export default function SettingsPage() {
           setBrand(brandData);
           // setAccentColor(brandData.accent_color || '#3B82F6');
           setLogoPreview(brandData.logo_url || null);
-          setLaborRate(
-            brandData.labor_rate !== null && brandData.labor_rate !== undefined
-              ? String(brandData.labor_rate)
+        }
+
+        const settingsResponse = await fetch('/api/workspaces/settings');
+        if (settingsResponse.ok) {
+          const settingsData = await settingsResponse.json();
+          setTaxRate(
+            settingsData.tax_rate_percent !== null && settingsData.tax_rate_percent !== undefined
+              ? String(settingsData.tax_rate_percent)
+              : ''
+          );
+          setMarkupPercent(
+            settingsData.markup_percent !== null && settingsData.markup_percent !== undefined
+              ? String(settingsData.markup_percent)
+              : ''
+          );
+          setHourlyRate(
+            settingsData.hourly_rate !== null && settingsData.hourly_rate !== undefined
+              ? String(settingsData.hourly_rate)
               : ''
           );
         }
@@ -187,10 +204,8 @@ export default function SettingsPage() {
 
       if (!response.ok) throw new Error('Failed to update workspace');
 
-      const parsedLaborRate = laborRate.trim() === '' ? null : Number(laborRate);
       const brandPayload: Record<string, unknown> = {
         brand_name: workspaceName,
-        labor_rate: Number.isFinite(parsedLaborRate) ? parsedLaborRate : null,
       };
       if (brand?.logo_bucket) {
         brandPayload.logo_bucket = brand.logo_bucket;
@@ -215,11 +230,36 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveSettings = async () => {
+    try {
+      const parsedTaxRate = taxRate.trim() === '' ? null : Number(taxRate);
+      const parsedMarkup = markupPercent.trim() === '' ? null : Number(markupPercent);
+      const parsedHourlyRate = hourlyRate.trim() === '' ? null : Number(hourlyRate);
+
+      const response = await fetch('/api/workspaces/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tax_rate_percent: Number.isFinite(parsedTaxRate) ? parsedTaxRate : null,
+          markup_percent: Number.isFinite(parsedMarkup) ? parsedMarkup : null,
+          hourly_rate: Number.isFinite(parsedHourlyRate) ? parsedHourlyRate : null,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update settings');
+
+      alert('Workspace settings updated successfully');
+      loadData();
+    } catch (error) {
+      console.error('Error updating workspace settings:', error);
+      alert('Failed to update workspace settings');
+    }
+  };
+
   const handleSaveBranding = async () => {
     try {
       let logoBucket = brand?.logo_bucket;
       let logoPath = brand?.logo_path;
-      const parsedLaborRate = laborRate.trim() === '' ? null : Number(laborRate);
 
       if (logoFile) {
         const formData = new FormData();
@@ -247,7 +287,6 @@ export default function SettingsPage() {
           // accent_color: accentColor,
           logo_bucket: logoBucket,
           logo_path: logoPath,
-          labor_rate: Number.isFinite(parsedLaborRate) ? parsedLaborRate : null,
         }),
       });
 
@@ -403,26 +442,71 @@ export default function SettingsPage() {
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Default Labor Rate
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={laborRate}
-                        onChange={(e) => setLaborRate(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                        placeholder="85"
-                      />
-                    </div>
                     <button
                       onClick={handleSaveWorkspace}
                       className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
                       Save Workspace
                     </button>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Estimate Defaults
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Tax Rate (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={taxRate}
+                        onChange={(e) => setTaxRate(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="6.0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Markup (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={markupPercent}
+                        onChange={(e) => setMarkupPercent(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="10.0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Default Hourly Rate
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={hourlyRate}
+                        onChange={(e) => setHourlyRate(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="85"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveSettings}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Save Estimate Defaults
+                    </button>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Only admins can update these values.
+                    </p>
                   </div>
                 </div>
 

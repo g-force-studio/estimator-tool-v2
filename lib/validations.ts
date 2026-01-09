@@ -17,6 +17,33 @@ export const workspaceBrandSchema = z.object({
   ),
 });
 
+export const workspaceSettingsSchema = z.object({
+  tax_rate_percent: z.preprocess(
+    (value) => {
+      if (value === '' || value === null || value === undefined) return undefined;
+      const num = typeof value === 'string' ? Number(value) : value;
+      return Number.isFinite(num) ? num : undefined;
+    },
+    z.number().min(0, 'Tax rate must be zero or higher').optional()
+  ),
+  markup_percent: z.preprocess(
+    (value) => {
+      if (value === '' || value === null || value === undefined) return undefined;
+      const num = typeof value === 'string' ? Number(value) : value;
+      return Number.isFinite(num) ? num : undefined;
+    },
+    z.number().min(0, 'Markup must be zero or higher').optional()
+  ),
+  hourly_rate: z.preprocess(
+    (value) => {
+      if (value === '' || value === null || value === undefined) return undefined;
+      const num = typeof value === 'string' ? Number(value) : value;
+      return Number.isFinite(num) ? num : undefined;
+    },
+    z.number().min(0, 'Hourly rate must be zero or higher').optional()
+  ),
+});
+
 export const inviteSchema = z.object({
   email: z.string().email('Invalid email address'),
   role: z.enum(['admin', 'member']),
@@ -76,6 +103,7 @@ export const packageSchema = z.object({
 
 export type WorkspaceInput = z.infer<typeof workspaceSchema>;
 export type WorkspaceBrandInput = z.infer<typeof workspaceBrandSchema>;
+export type WorkspaceSettingsInput = z.infer<typeof workspaceSettingsSchema>;
 export type InviteInput = z.infer<typeof inviteSchema>;
 export type JobInput = z.infer<typeof jobSchema>;
 export type JobItemInput = z.infer<typeof jobItemSchema>;

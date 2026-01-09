@@ -39,6 +39,16 @@ CREATE TABLE workspace_brand (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Workspace settings table
+CREATE TABLE workspace_settings (
+  workspace_id UUID PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+  tax_rate_percent NUMERIC NOT NULL DEFAULT 0 CHECK (tax_rate_percent >= 0),
+  markup_percent NUMERIC NOT NULL DEFAULT 0 CHECK (markup_percent >= 0),
+  hourly_rate NUMERIC NOT NULL DEFAULT 0 CHECK (hourly_rate >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Workspace invites table
 CREATE TABLE workspace_invites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -246,6 +256,8 @@ CREATE TRIGGER update_workspaces_updated_at BEFORE UPDATE ON workspaces
 
 CREATE TRIGGER update_workspace_brand_updated_at BEFORE UPDATE ON workspace_brand
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_workspace_settings_updated_at BEFORE UPDATE ON workspace_settings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_jobs_updated_at BEFORE UPDATE ON jobs
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -270,6 +282,7 @@ CREATE TRIGGER update_template_catalog_updated_at BEFORE UPDATE ON template_cata
 ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_brand ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workspace_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_inputs ENABLE ROW LEVEL SECURITY;
@@ -324,6 +337,19 @@ CREATE POLICY "Admins can update workspace brand"
   ON workspace_brand FOR UPDATE
   USING (is_admin_of(workspace_id));
 
+-- Workspace settings policies
+CREATE POLICY "Members can view workspace settings"
+  ON workspace_settings FOR SELECT
+  USING (is_member_of(workspace_id));
+
+CREATE POLICY "Admins can create workspace settings"
+  ON workspace_settings FOR INSERT
+  WITH CHECK (is_admin_of(workspace_id));
+
+CREATE POLICY "Admins can update workspace settings"
+  ON workspace_settings FOR UPDATE
+  USING (is_admin_of(workspace_id));
+
 -- Workspace invites policies
 CREATE POLICY "Admins can view workspace invites"
   ON workspace_invites FOR SELECT
@@ -362,33 +388,33 @@ CREATE POLICY "Members can delete workspace jobs"
 CREATE POLICY "Members can view job items"
   ON job_items FOR SELECT
   USING (EXISTS (
-    SELECT 1 FROM jobs 
-    WHERE jobs.id = job_items.job_id 
-    AND jobs.workspace_id = current_workspace_id()
+    SELECT 1 FROM jobs
+    WHERE jobs.id = job_items.job_id
+      AND is_member_of(jobs.workspace_id)
   ));
 
 CREATE POLICY "Members can create job items"
   ON job_items FOR INSERT
   WITH CHECK (EXISTS (
-    SELECT 1 FROM jobs 
-    WHERE jobs.id = job_items.job_id 
-    AND jobs.workspace_id = current_workspace_id()
+    SELECT 1 FROM jobs
+    WHERE jobs.id = job_items.job_id
+      AND is_member_of(jobs.workspace_id)
   ));
 
 CREATE POLICY "Members can update job items"
   ON job_items FOR UPDATE
   USING (EXISTS (
-    SELECT 1 FROM jobs 
-    WHERE jobs.id = job_items.job_id 
-    AND jobs.workspace_id = current_workspace_id()
+    SELECT 1 FROM jobs
+    WHERE jobs.id = job_items.job_id
+      AND is_member_of(jobs.workspace_id)
   ));
 
 CREATE POLICY "Members can delete job items"
   ON job_items FOR DELETE
   USING (EXISTS (
-    SELECT 1 FROM jobs 
-    WHERE jobs.id = job_items.job_id 
-    AND jobs.workspace_id = current_workspace_id()
+    SELECT 1 FROM jobs
+    WHERE jobs.id = job_items.job_id
+      AND is_member_of(jobs.workspace_id)
   ));
 
 -- Templates policies
