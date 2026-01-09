@@ -42,7 +42,7 @@ export default function OnboardingPage() {
         <div className="text-center">
           <h1 className="text-3xl font-bold">Welcome to RelayKit</h1>
           <p className="mt-2 text-muted-foreground">
-            Let's create your workspace to get started
+            Let us create your workspace to get started
           </p>
         </div>
 

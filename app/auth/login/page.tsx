@@ -83,7 +83,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
-          No password needed. We'll send you a magic link to sign in.
+          No password needed. We will send you a magic link to sign in.
         </p>
       </div>
     </div>

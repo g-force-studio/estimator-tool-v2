@@ -92,7 +92,7 @@ export function HomeContent({ workspaceId }: { workspaceId: string }) {
       {!online && (
         <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-sm text-yellow-700 dark:text-yellow-300 flex items-center gap-2">
           <OfflineIcon className="h-4 w-4" />
-          You're offline. Showing cached data.
+          You are offline. Showing cached data.
         </div>
       )}
 

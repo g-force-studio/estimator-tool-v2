@@ -153,7 +153,7 @@ export default function InvitePage({ params }: { params: { token: string } }) {
         </button>
 
         <p className="text-center text-sm text-muted-foreground">
-          By accepting, you'll join this workspace and gain access to all shared jobs and
+          By accepting, you will join this workspace and gain access to all shared jobs and
           templates.
         </p>
       </div>
