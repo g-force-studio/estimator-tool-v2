@@ -71,7 +71,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { brand_name, logo_bucket, logo_path } = body;
+    const { brand_name, logo_bucket, logo_path, labor_rate } = body;
 
     let resolvedBrandName = brand_name;
     if (!resolvedBrandName) {
@@ -95,6 +95,7 @@ export async function PUT(request: NextRequest) {
         brand_name: resolvedBrandName,
         logo_bucket,
         logo_path,
+        labor_rate,
       })
       .select()
       .single();

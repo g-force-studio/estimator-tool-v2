@@ -87,9 +87,31 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
+    const { error: fileInsertError } = await serviceClient
+      .from('job_files')
+      .insert({
+        job_id: jobId,
+        kind: 'image',
+        storage_path: data.path,
+        public_url: null,
+      });
+
+    if (fileInsertError && fileInsertError.code !== 'PGRST205') {
+      throw fileInsertError;
+    }
+
+    const { data: signedData, error: signedError } = await serviceClient.storage
+      .from('job-assets')
+      .createSignedUrl(data.path, SIGNED_URL_TTL_SECONDS);
+
+    if (signedError) {
+      console.error('Error signing job asset upload:', signedError);
+    }
+
     return NextResponse.json({
       path: data.path,
       bucket: 'job-assets',
+      signed_url: signedData?.signedUrl || null,
       originalName: file.name,
       mimeType: file.type,
       size: file.size,

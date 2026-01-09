@@ -37,6 +37,7 @@ interface WorkspaceBrand {
   logo_bucket?: string;
   logo_path?: string;
   logo_url?: string | null;
+  labor_rate?: number | null;
 }
 
 interface Member {
@@ -68,6 +69,7 @@ export default function SettingsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [workspaceName, setWorkspaceName] = useState('');
+  const [laborRate, setLaborRate] = useState('');
   // const [accentColor, setAccentColor] = useState('#3B82F6');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -124,6 +126,11 @@ export default function SettingsPage() {
           setBrand(brandData);
           // setAccentColor(brandData.accent_color || '#3B82F6');
           setLogoPreview(brandData.logo_url || null);
+          setLaborRate(
+            brandData.labor_rate !== null && brandData.labor_rate !== undefined
+              ? String(brandData.labor_rate)
+              : ''
+          );
         }
       }
 
@@ -180,6 +187,26 @@ export default function SettingsPage() {
 
       if (!response.ok) throw new Error('Failed to update workspace');
 
+      const parsedLaborRate = laborRate.trim() === '' ? null : Number(laborRate);
+      const brandPayload: Record<string, unknown> = {
+        brand_name: workspaceName,
+        labor_rate: Number.isFinite(parsedLaborRate) ? parsedLaborRate : null,
+      };
+      if (brand?.logo_bucket) {
+        brandPayload.logo_bucket = brand.logo_bucket;
+      }
+      if (brand?.logo_path) {
+        brandPayload.logo_path = brand.logo_path;
+      }
+
+      const brandResponse = await fetch('/api/workspaces/brand', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(brandPayload),
+      });
+
+      if (!brandResponse.ok) throw new Error('Failed to update workspace settings');
+
       alert('Workspace updated successfully');
       loadData();
     } catch (error) {
@@ -192,6 +219,7 @@ export default function SettingsPage() {
     try {
       let logoBucket = brand?.logo_bucket;
       let logoPath = brand?.logo_path;
+      const parsedLaborRate = laborRate.trim() === '' ? null : Number(laborRate);
 
       if (logoFile) {
         const formData = new FormData();
@@ -219,6 +247,7 @@ export default function SettingsPage() {
           // accent_color: accentColor,
           logo_bucket: logoBucket,
           logo_path: logoPath,
+          labor_rate: Number.isFinite(parsedLaborRate) ? parsedLaborRate : null,
         }),
       });
 
@@ -372,6 +401,20 @@ export default function SettingsPage() {
                         value={workspaceName}
                         onChange={(e) => setWorkspaceName(e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Default Labor Rate
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={laborRate}
+                        onChange={(e) => setLaborRate(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="85"
                       />
                     </div>
                     <button

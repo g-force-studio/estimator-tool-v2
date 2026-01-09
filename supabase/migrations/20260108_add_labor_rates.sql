@@ -1,0 +1,5 @@
+ALTER TABLE workspace_brand
+ADD COLUMN IF NOT EXISTS labor_rate NUMERIC;
+
+ALTER TABLE jobs
+ADD COLUMN IF NOT EXISTS labor_rate NUMERIC;
