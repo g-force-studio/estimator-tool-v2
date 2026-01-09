@@ -30,8 +30,8 @@ export default function LoginPage() {
       if (error) throw error;
 
       setMessage('Check your email for the magic link!');
-    } catch (error: any) {
-      setMessage(error.message || 'An error occurred');
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setLoading(false);
     }

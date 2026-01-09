@@ -4,9 +4,49 @@ import { useEffect, useState } from 'react';
 import { cachePackage, getCachedPackage } from '@/lib/db/idb';
 import { PaperclipIcon } from '@/components/icons';
 
+type PackageAsset = {
+  bucket: string;
+  path: string;
+  signed_url?: string;
+  type?: string;
+};
+
+type PackageSnapshotItem = {
+  title?: string;
+  type?: 'text' | 'link' | 'file';
+  content_json?: {
+    text?: string;
+    url?: string;
+    storage_bucket?: string;
+    storage_path?: string;
+    mime_type?: string;
+    original_name?: string;
+  };
+};
+
+type PackageSnapshot = {
+  title?: string;
+  client_name?: string;
+  description_md?: string;
+  items?: PackageSnapshotItem[];
+  totals_json?: { total?: string | number };
+};
+
+type PackageBrand = {
+  brand_name?: string;
+  accent_color?: string;
+  logo_bucket?: string;
+  logo_path?: string;
+};
+
+type PackagePayload = {
+  brand_header_json?: PackageBrand;
+  snapshot_json?: PackageSnapshot;
+};
+
 export default function PackagePage({ params }: { params: { slug: string } }) {
-  const [pkg, setPkg] = useState<any>(null);
-  const [assets, setAssets] = useState<any[]>([]);
+  const [pkg, setPkg] = useState<PackagePayload | null>(null);
+  const [assets, setAssets] = useState<PackageAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -42,8 +82,8 @@ export default function PackagePage({ params }: { params: { slug: string } }) {
           });
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load package');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load package');
     } finally {
       setLoading(false);
     }
@@ -122,7 +162,7 @@ export default function PackagePage({ params }: { params: { slug: string } }) {
         {snapshot.items && snapshot.items.length > 0 && (
           <div className="space-y-4">
             <h3 className="text-xl font-semibold">Items</h3>
-            {snapshot.items.map((item: any, index: number) => (
+            {snapshot.items.map((item: PackageSnapshotItem, index: number) => (
               <div key={index} className="bg-card border border-border rounded-lg p-4">
                 <h4 className="font-semibold mb-2">{item.title}</h4>
                 {item.type === 'text' && <p className="text-sm">{item.content_json?.text}</p>}

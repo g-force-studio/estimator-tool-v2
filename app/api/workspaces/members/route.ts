@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    const formattedMembers = members.map((member: any) => ({
+    const formattedMembers = members.map((member: { user_id: string; role: string; created_at: string; profiles?: { email?: string | null } | null }) => ({
       user_id: member.user_id,
       role: member.role,
       created_at: member.created_at,

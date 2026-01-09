@@ -59,12 +59,10 @@ export async function POST(request: Request) {
     if (settingsError) throw settingsError;
 
     return NextResponse.json(workspace);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to create workspace';
     console.error('Workspace creation error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to create workspace' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -90,12 +88,10 @@ export async function GET() {
     }
 
     return NextResponse.json(member.workspaces);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch workspace';
     console.error('Workspace fetch error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch workspace' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -133,12 +129,10 @@ export async function PUT(request: Request) {
     if (error) throw error;
 
     return NextResponse.json(workspace);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update workspace';
     console.error('Workspace update error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to update workspace' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

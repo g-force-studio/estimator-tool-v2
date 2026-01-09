@@ -28,6 +28,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       workspace_members: {
         Row: {
@@ -48,6 +49,7 @@ export interface Database {
           role?: 'owner' | 'admin' | 'member'
           created_at?: string
         }
+        Relationships: []
       }
       workspace_brand: {
         Row: {
@@ -77,6 +79,7 @@ export interface Database {
           logo_path?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       workspace_settings: {
         Row: {
@@ -103,6 +106,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       workspace_invites: {
         Row: {
@@ -141,6 +145,7 @@ export interface Database {
           accepted_at?: string | null
           accepted_by_user_id?: string | null
         }
+        Relationships: []
       }
       jobs: {
         Row: {
@@ -148,13 +153,22 @@ export interface Database {
           workspace_id: string
           created_by_user_id: string
           title: string
-          status: 'draft' | 'active' | 'delivered' | 'archived'
+          status:
+            | 'draft'
+            | 'ai_pending'
+            | 'ai_ready'
+            | 'pdf_pending'
+            | 'complete'
+            | 'ai_error'
+            | 'pdf_error'
           due_date: string | null
           client_name: string | null
           description_md: string | null
           template_id: string | null
           labor_rate: number | null
           totals_json: Json | null
+          pdf_url: string | null
+          error_message: string | null
           created_at: string
           updated_at: string
         }
@@ -163,13 +177,22 @@ export interface Database {
           workspace_id: string
           created_by_user_id: string
           title: string
-          status?: 'draft' | 'active' | 'delivered' | 'archived'
+          status?:
+            | 'draft'
+            | 'ai_pending'
+            | 'ai_ready'
+            | 'pdf_pending'
+            | 'complete'
+            | 'ai_error'
+            | 'pdf_error'
           due_date?: string | null
           client_name?: string | null
           description_md?: string | null
           template_id?: string | null
           labor_rate?: number | null
           totals_json?: Json | null
+          pdf_url?: string | null
+          error_message?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -178,16 +201,55 @@ export interface Database {
           workspace_id?: string
           created_by_user_id?: string
           title?: string
-          status?: 'draft' | 'active' | 'delivered' | 'archived'
+          status?:
+            | 'draft'
+            | 'ai_pending'
+            | 'ai_ready'
+            | 'pdf_pending'
+            | 'complete'
+            | 'ai_error'
+            | 'pdf_error'
           due_date?: string | null
           client_name?: string | null
           description_md?: string | null
           template_id?: string | null
           labor_rate?: number | null
           totals_json?: Json | null
+          pdf_url?: string | null
+          error_message?: string | null
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'ai_outputs_job_id_fkey'
+            columns: ['id']
+            referencedRelation: 'ai_outputs'
+            referencedColumns: ['job_id']
+            isOneToOne: false
+          },
+          {
+            foreignKeyName: 'job_files_job_id_fkey'
+            columns: ['id']
+            referencedRelation: 'job_files'
+            referencedColumns: ['job_id']
+            isOneToOne: false
+          },
+          {
+            foreignKeyName: 'job_inputs_job_id_fkey'
+            columns: ['id']
+            referencedRelation: 'job_inputs'
+            referencedColumns: ['job_id']
+            isOneToOne: true
+          },
+          {
+            foreignKeyName: 'job_items_job_id_fkey'
+            columns: ['id']
+            referencedRelation: 'job_items'
+            referencedColumns: ['job_id']
+            isOneToOne: false
+          },
+        ]
       }
       job_items: {
         Row: {
@@ -220,6 +282,105 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'job_items_job_id_fkey'
+            columns: ['job_id']
+            referencedRelation: 'jobs'
+            referencedColumns: ['id']
+            isOneToOne: false
+          },
+        ]
+      }
+      job_inputs: {
+        Row: {
+          job_id: string
+          raw_input_json: Json
+          created_at: string
+        }
+        Insert: {
+          job_id: string
+          raw_input_json: Json
+          created_at?: string
+        }
+        Update: {
+          job_id?: string
+          raw_input_json?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'job_inputs_job_id_fkey'
+            columns: ['job_id']
+            referencedRelation: 'jobs'
+            referencedColumns: ['id']
+            isOneToOne: true
+          },
+        ]
+      }
+      ai_outputs: {
+        Row: {
+          id: string
+          job_id: string
+          ai_json: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          ai_json: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          ai_json?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'ai_outputs_job_id_fkey'
+            columns: ['job_id']
+            referencedRelation: 'jobs'
+            referencedColumns: ['id']
+            isOneToOne: false
+          },
+        ]
+      }
+      job_files: {
+        Row: {
+          id: string
+          job_id: string
+          kind: 'pdf' | 'image'
+          storage_path: string
+          public_url: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          kind: 'pdf' | 'image'
+          storage_path: string
+          public_url?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          kind?: 'pdf' | 'image'
+          storage_path?: string
+          public_url?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'job_files_job_id_fkey'
+            columns: ['job_id']
+            referencedRelation: 'jobs'
+            referencedColumns: ['id']
+            isOneToOne: false
+          },
+        ]
       }
       templates: {
         Row: {
@@ -252,6 +413,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       packages: {
         Row: {
@@ -284,6 +446,7 @@ export interface Database {
           snapshot_json?: Json
           generated_at?: string
         }
+        Relationships: []
       }
       ai_reference_configs: {
         Row: {
@@ -313,6 +476,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       template_catalog: {
         Row: {
@@ -345,6 +509,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
     }
     Views: {

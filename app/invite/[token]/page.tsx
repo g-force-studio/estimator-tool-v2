@@ -5,12 +5,21 @@ import { useRouter } from 'next/navigation';
 import { AlertIcon } from '@/components/icons';
 import { createClient } from '@/lib/supabase/client';
 
+type InviteDetails = {
+  workspaces?: { name?: string } | null;
+  role?: 'admin' | 'member';
+};
+
+type InviteUser = {
+  email?: string | null;
+};
+
 export default function InvitePage({ params }: { params: { token: string } }) {
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState('');
-  const [invite, setInvite] = useState<any>(null);
-  const [user, setUser] = useState<any>(null);
+  const [invite, setInvite] = useState<InviteDetails | null>(null);
+  const [user, setUser] = useState<InviteUser | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,8 +56,8 @@ export default function InvitePage({ params }: { params: { token: string } }) {
       } else {
         setInvite(data.invite);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to validate invite');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to validate invite');
     } finally {
       setLoading(false);
     }
@@ -73,8 +82,8 @@ export default function InvitePage({ params }: { params: { token: string } }) {
 
       router.push('/');
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to accept invite');
     } finally {
       setAccepting(false);
     }

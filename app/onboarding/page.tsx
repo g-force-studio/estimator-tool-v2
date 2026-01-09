@@ -29,8 +29,8 @@ export default function OnboardingPage() {
 
       router.push('/');
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create workspace');
     } finally {
       setLoading(false);
     }

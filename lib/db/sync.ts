@@ -8,6 +8,14 @@ import { SYNC_RETRY_DELAYS } from '../config';
 
 let isProcessing = false;
 
+type SyncQueueItem = {
+  id?: number;
+  type: 'create' | 'update' | 'delete';
+  entity: string;
+  data: Record<string, unknown>;
+  retries: number;
+};
+
 export async function processSyncQueue() {
   if (isProcessing || !navigator.onLine) return;
 
@@ -40,7 +48,7 @@ export async function processSyncQueue() {
 export async function addToSyncQueue(operation: {
   operation: 'create' | 'update' | 'delete';
   table: string;
-  data: any;
+  data: Record<string, unknown>;
 }) {
   return enqueueSyncOperation({
     type: operation.operation,
@@ -49,7 +57,7 @@ export async function addToSyncQueue(operation: {
   });
 }
 
-async function executeSyncOperation(operation: any) {
+async function executeSyncOperation(operation: SyncQueueItem) {
   const { type, entity, data } = operation;
 
   const endpoint = `/api/${entity}`;

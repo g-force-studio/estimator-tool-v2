@@ -21,15 +21,53 @@ type MaterialLine = {
   cost: number;
 };
 
+type JobItem = {
+  type?: string;
+  title?: string;
+  content_json?: {
+    description?: string;
+    unit?: string;
+    unit_price?: number;
+    quantity?: number;
+  };
+};
+
+type OpenAIResponse = {
+  output_text?: string;
+  output?: Array<{
+    content?: Array<{ type?: string; text?: string }>;
+  }>;
+  error?: { message?: string };
+};
+
+type EstimateDraft = {
+  client?: {
+    customerName?: string;
+    customerEmail?: string;
+    address?: string;
+    phone?: string;
+    preferredDate?: string;
+  };
+  estimate?: {
+    estimateNumber?: string;
+    project?: string;
+    jobDescription?: string;
+    jobNotes?: string;
+    labor?: Array<{ task?: string; hours?: number }>;
+    materials?: Array<{ item?: string; qty?: number; cost?: number }>;
+  };
+  image_analysis?: ImageAnalysis[];
+};
+
 const roundToHalf = (value: number) => Math.round(value * 2) / 2;
 
-const extractOutputText = (payload: any) => {
+const extractOutputText = (payload: OpenAIResponse) => {
   if (typeof payload?.output_text === 'string') return payload.output_text;
   const chunks =
-    payload?.output?.flatMap((item: any) =>
+    payload?.output?.flatMap((item) =>
       (item?.content || [])
-        .filter((part: any) => part?.type === 'output_text')
-        .map((part: any) => part?.text)
+        .filter((part) => part?.type === 'output_text')
+        .map((part) => part?.text)
     ) || [];
   return chunks.join('\n').trim();
 };
@@ -116,10 +154,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
       throw new Error('OPENAI_API_KEY is missing');
     }
 
-    const lineItems = (job.job_items || [])
-      .filter((item: any) => item.type === 'line_item')
-      .map((item: any) => ({
-        name: item.title,
+    const jobItems = Array.isArray(job.job_items)
+      ? (job.job_items as JobItem[])
+      : job.job_items
+        ? [job.job_items as JobItem]
+        : [];
+    const lineItems = jobItems
+      .filter((item) => item.type === 'line_item')
+      .map((item) => ({
+        name: item.title || '',
         description: item.content_json?.description || '',
         unit: item.content_json?.unit || '',
         unit_price: item.content_json?.unit_price ?? 0,
@@ -181,23 +224,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
       }),
     });
 
-    const openaiData = await openaiResponse.json();
+    const openaiData = (await openaiResponse.json()) as OpenAIResponse;
     if (!openaiResponse.ok) {
       throw new Error(openaiData?.error?.message || 'OpenAI request failed');
     }
 
     const outputText = extractOutputText(openaiData);
-    const parsed = JSON.parse(outputText);
+    const parsed = JSON.parse(outputText) as EstimateDraft;
 
     const labor: LaborLine[] = Array.isArray(parsed?.estimate?.labor)
-      ? parsed.estimate.labor.map((item: any) => ({
+      ? parsed.estimate?.labor?.map((item) => ({
           task: String(item?.task || '').trim(),
           hours: Number(item?.hours ?? 0),
         }))
       : [];
 
     const materials: MaterialLine[] = Array.isArray(parsed?.estimate?.materials)
-      ? parsed.estimate.materials.map((item: any) => ({
+      ? parsed.estimate?.materials?.map((item) => ({
           item: String(item?.item || '').trim(),
           qty: Number(item?.qty ?? 0),
           cost: Number(item?.cost ?? 0),
@@ -269,14 +312,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
     if (updateError) throw updateError;
 
     return NextResponse.json({ job: updatedJob, ai_output: aiOutput });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'AI error';
     console.error('Estimate generation error:', error);
     await supabase
       .from('jobs')
-      .update({ status: 'ai_error', error_message: error?.message || 'AI error' })
+      .update({ status: 'ai_error', error_message: message })
       .eq('id', params.id);
     return NextResponse.json(
-      { error: error?.message || 'Failed to generate estimate' },
+      { error: message || 'Failed to generate estimate' },
       { status: 500 }
     );
   }

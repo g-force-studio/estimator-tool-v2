@@ -22,12 +22,10 @@ export async function GET() {
     if (error) throw error;
 
     return NextResponse.json({ jobs });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch jobs';
     console.error('Jobs fetch error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch jobs' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -69,7 +67,7 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    let jobItems = [];
+    let jobItems: Array<Record<string, unknown>> = [];
     if (lineItems.length > 0) {
       const { data: items, error: itemsError } = await supabase
         .from('job_items')
@@ -94,11 +92,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ ...job, job_items: jobItems });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to create job';
     console.error('Job creation error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to create job' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

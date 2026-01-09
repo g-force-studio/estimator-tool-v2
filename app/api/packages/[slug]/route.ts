@@ -1,6 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/service';
 import { NextResponse } from 'next/server';
-import { SIGNED_URL_TTL_SECONDS } from '@/lib/config';
 
 export async function GET(request: Request, { params }: { params: { slug: string } }) {
   try {
@@ -26,11 +25,9 @@ export async function GET(request: Request, { params }: { params: { slug: string
         generated_at: pkg.generated_at,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch package';
     console.error('Package fetch error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch package' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

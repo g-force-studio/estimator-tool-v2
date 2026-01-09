@@ -1,23 +1,25 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { IDB_STORES } from '../config';
 
+type CacheRecord = Record<string, unknown>;
+
 interface RelayKitDB extends DBSchema {
   [IDB_STORES.JOBS_CACHE]: {
     key: string;
-    value: any;
+    value: CacheRecord;
     indexes: { 'by-updated': string };
   };
   [IDB_STORES.JOB_DRAFTS]: {
     key: string;
-    value: any;
+    value: CacheRecord;
   };
   [IDB_STORES.TEMPLATES_CACHE]: {
     key: string;
-    value: any;
+    value: CacheRecord;
   };
   [IDB_STORES.PACKAGES_CACHE]: {
     key: string;
-    value: any;
+    value: CacheRecord;
   };
   [IDB_STORES.SYNC_QUEUE]: {
     key: number;
@@ -25,7 +27,7 @@ interface RelayKitDB extends DBSchema {
       id?: number;
       type: 'create' | 'update' | 'delete';
       entity: string;
-      data: any;
+      data: CacheRecord;
       timestamp: number;
       retries: number;
     };
@@ -93,23 +95,23 @@ export async function getDB(): Promise<IDBPDatabase<RelayKitDB>> {
   return dbInstance;
 }
 
-export async function cacheJobs(jobs: any[]) {
+export async function cacheJobs(jobs: CacheRecord[]) {
   const db = await getDB();
   const tx = db.transaction(IDB_STORES.JOBS_CACHE, 'readwrite');
   await Promise.all(jobs.map((job) => tx.store.put(job)));
   await tx.done;
 }
 
-export async function createJob(job: any) {
+export async function createJob(job: CacheRecord) {
   const db = await getDB();
   await db.put(IDB_STORES.JOBS_CACHE, job);
 }
 
-export async function getJob(id: string): Promise<any | undefined> {
+export async function getJob(id: string): Promise<CacheRecord | undefined> {
   return getCachedJob(id);
 }
 
-export async function updateJob(job: any) {
+export async function updateJob(job: CacheRecord) {
   const db = await getDB();
   await db.put(IDB_STORES.JOBS_CACHE, job);
 }
@@ -119,31 +121,31 @@ export async function deleteJob(id: string) {
   await db.delete(IDB_STORES.JOBS_CACHE, id);
 }
 
-export async function getCachedJobs(): Promise<any[]> {
+export async function getCachedJobs(): Promise<CacheRecord[]> {
   const db = await getDB();
   return db.getAllFromIndex(IDB_STORES.JOBS_CACHE, 'by-updated');
 }
 
-export async function getCachedJob(id: string): Promise<any | undefined> {
+export async function getCachedJob(id: string): Promise<CacheRecord | undefined> {
   const db = await getDB();
   return db.get(IDB_STORES.JOBS_CACHE, id);
 }
 
-export async function saveDraft(draft: any) {
+export async function saveDraft(draft: CacheRecord) {
   const db = await getDB();
   await db.put(IDB_STORES.JOB_DRAFTS, draft);
 }
 
-export async function addJobDraft(draft: any) {
+export async function addJobDraft(draft: CacheRecord) {
   return saveDraft(draft);
 }
 
-export async function getDraft(id: string): Promise<any | undefined> {
+export async function getDraft(id: string): Promise<CacheRecord | undefined> {
   const db = await getDB();
   return db.get(IDB_STORES.JOB_DRAFTS, id);
 }
 
-export async function getJobDraft(id: string): Promise<any | undefined> {
+export async function getJobDraft(id: string): Promise<CacheRecord | undefined> {
   return getDraft(id);
 }
 
@@ -156,24 +158,24 @@ export async function deleteJobDraft(id: string) {
   return deleteDraft(id);
 }
 
-export async function cacheTemplates(templates: any[]) {
+export async function cacheTemplates(templates: CacheRecord[]) {
   const db = await getDB();
   const tx = db.transaction(IDB_STORES.TEMPLATES_CACHE, 'readwrite');
   await Promise.all(templates.map((template) => tx.store.put(template)));
   await tx.done;
 }
 
-export async function createTemplate(template: any) {
+export async function createTemplate(template: CacheRecord) {
   const db = await getDB();
   await db.put(IDB_STORES.TEMPLATES_CACHE, template);
 }
 
-export async function getTemplate(id: string): Promise<any | undefined> {
+export async function getTemplate(id: string): Promise<CacheRecord | undefined> {
   const db = await getDB();
   return db.get(IDB_STORES.TEMPLATES_CACHE, id);
 }
 
-export async function updateTemplate(template: any) {
+export async function updateTemplate(template: CacheRecord) {
   const db = await getDB();
   await db.put(IDB_STORES.TEMPLATES_CACHE, template);
 }
@@ -183,17 +185,17 @@ export async function deleteTemplate(id: string) {
   await db.delete(IDB_STORES.TEMPLATES_CACHE, id);
 }
 
-export async function getCachedTemplates(): Promise<any[]> {
+export async function getCachedTemplates(): Promise<CacheRecord[]> {
   const db = await getDB();
   return db.getAll(IDB_STORES.TEMPLATES_CACHE);
 }
 
-export async function cachePackage(pkg: any) {
+export async function cachePackage(pkg: CacheRecord) {
   const db = await getDB();
   await db.put(IDB_STORES.PACKAGES_CACHE, pkg);
 }
 
-export async function getCachedPackage(slug: string): Promise<any | undefined> {
+export async function getCachedPackage(slug: string): Promise<CacheRecord | undefined> {
   const db = await getDB();
   return db.get(IDB_STORES.PACKAGES_CACHE, slug);
 }
@@ -201,7 +203,7 @@ export async function getCachedPackage(slug: string): Promise<any | undefined> {
 export async function enqueueSyncOperation(operation: {
   type: 'create' | 'update' | 'delete';
   entity: string;
-  data: any;
+  data: CacheRecord;
 }) {
   const db = await getDB();
   await db.add(IDB_STORES.SYNC_QUEUE, {
@@ -221,7 +223,7 @@ export async function removeSyncOperation(id: number) {
   await db.delete(IDB_STORES.SYNC_QUEUE, id);
 }
 
-export async function updateSyncOperation(id: number, updates: Partial<any>) {
+export async function updateSyncOperation(id: number, updates: Partial<CacheRecord>) {
   const db = await getDB();
   const item = await db.get(IDB_STORES.SYNC_QUEUE, id);
   if (item) {

@@ -6,8 +6,17 @@ import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { ClipboardIcon, OfflineIcon } from '@/components/icons';
 
+type JobSummary = {
+  id: string;
+  title: string;
+  client_name?: string | null;
+  status: string;
+  due_date?: string | null;
+  pdf_url?: string | null;
+};
+
 export function HomeContent({ workspaceId }: { workspaceId: string }) {
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(true);
   const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -50,7 +59,7 @@ export function HomeContent({ workspaceId }: { workspaceId: string }) {
     }
   };
 
-  const openPdf = async (event: React.MouseEvent, job: any) => {
+  const openPdf = async (event: React.MouseEvent, job: JobSummary) => {
     event.preventDefault();
     event.stopPropagation();
 

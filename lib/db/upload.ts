@@ -8,6 +8,28 @@ import { SYNC_RETRY_DELAYS } from '../config';
 
 let isProcessing = false;
 
+type UploadQueueItem = {
+  id?: number;
+  jobId: string;
+  jobItemId: string;
+  blob: Blob;
+  filename: string;
+  mimeType: string;
+  retries: number;
+  status: 'queued' | 'uploading' | 'uploaded' | 'failed';
+};
+
+type UploadPayload = {
+  file?: File;
+  job_id?: string;
+  jobId?: string;
+  job_item_id?: string;
+  jobItemId?: string;
+  blob?: Blob;
+  filename?: string;
+  mimeType?: string;
+};
+
 export async function processUploadQueue() {
   if (isProcessing || !navigator.onLine) return;
 
@@ -41,8 +63,8 @@ export async function processUploadQueue() {
   }
 }
 
-export async function addToUploadQueue(payload: any) {
-  if (payload?.file instanceof File) {
+export async function addToUploadQueue(payload: UploadPayload) {
+  if (payload.file instanceof File) {
     return enqueueUpload({
       jobId: payload.job_id || payload.jobId || '',
       jobItemId: payload.job_item_id || payload.jobItemId || 'general',
@@ -53,15 +75,15 @@ export async function addToUploadQueue(payload: any) {
   }
 
   return enqueueUpload({
-    jobId: payload.jobId,
-    jobItemId: payload.jobItemId,
-    blob: payload.blob,
-    filename: payload.filename,
-    mimeType: payload.mimeType,
+    jobId: payload.jobId || '',
+    jobItemId: payload.jobItemId || 'general',
+    blob: payload.blob as Blob,
+    filename: payload.filename || 'upload',
+    mimeType: payload.mimeType || '',
   });
 }
 
-async function uploadFile(item: any) {
+async function uploadFile(item: UploadQueueItem) {
   const formData = new FormData();
   formData.append('file', item.blob, item.filename);
   formData.append('jobId', item.jobId);

@@ -65,11 +65,9 @@ export async function GET(request: Request, { params }: { params: { slug: string
     const validAssets = signedAssets.filter((a) => a !== null);
 
     return NextResponse.json({ assets: validAssets });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to sign assets';
     console.error('Assets signing error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to sign assets' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

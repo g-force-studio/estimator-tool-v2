@@ -71,12 +71,10 @@ export async function POST(request: Request) {
       inviteLink,
       message: 'Invite created. Copy the link above to share with the invitee.',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to create invite';
     console.error('Invite creation error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to create invite' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -110,11 +108,9 @@ export async function GET() {
     if (error) throw error;
 
     return NextResponse.json({ invites });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch invites';
     console.error('Invites fetch error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch invites' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

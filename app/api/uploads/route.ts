@@ -116,11 +116,9 @@ export async function POST(request: Request) {
       mimeType: file.type,
       size: file.size,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to upload file';
     console.error('Upload error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to upload file' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

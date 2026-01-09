@@ -99,11 +99,9 @@ export async function POST(request: Request) {
       workspace: invite.workspaces,
       role: invite.role,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to accept invite';
     console.error('Invite acceptance error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to accept invite' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

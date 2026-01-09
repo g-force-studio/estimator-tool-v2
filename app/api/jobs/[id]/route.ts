@@ -89,12 +89,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
     }
 
     return NextResponse.json({ ...job, photos });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch job';
     console.error('Job fetch error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch job' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -135,24 +133,24 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     if (deleteError) throw deleteError;
 
-    let jobItems = [];
+    let jobItems: Array<Record<string, unknown>> = [];
     if (lineItems.length > 0) {
+      const itemsToInsert = lineItems.map((item, index) => ({
+        job_id: params.id,
+        type: 'line_item' as const,
+        title: item.name,
+        content_json: {
+          description: item.description || '',
+          unit: item.unit,
+          unit_price: item.unit_price,
+          quantity: item.quantity,
+        },
+        order_index: index,
+      }));
+
       const { data: items, error: itemsError } = await supabase
         .from('job_items')
-        .insert(
-          lineItems.map((item, index) => ({
-            job_id: params.id,
-            type: 'line_item',
-            title: item.name,
-            content_json: {
-              description: item.description || '',
-              unit: item.unit,
-              unit_price: item.unit_price,
-              quantity: item.quantity,
-            },
-            order_index: index,
-          }))
-        )
+        .insert(itemsToInsert)
         .select();
 
       if (itemsError) throw itemsError;
@@ -160,12 +158,10 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     return NextResponse.json({ ...job, job_items: jobItems });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update job';
     console.error('Job update error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to update job' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -196,11 +192,9 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     }
 
     return NextResponse.json({ success: true, id: data.id });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to delete job';
     console.error('Job delete error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to delete job' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

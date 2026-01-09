@@ -39,11 +39,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ invite });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to validate invite';
     console.error('Invite validation error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to validate invite' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
