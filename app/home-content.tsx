@@ -15,7 +15,7 @@ type JobSummary = {
   pdf_url?: string | null;
 };
 
-export function HomeContent({ workspaceId }: { workspaceId: string }) {
+export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string }) {
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(true);

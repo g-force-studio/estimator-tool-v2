@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertIcon } from '@/components/icons';
 import { createClient } from '@/lib/supabase/client';
@@ -22,26 +22,7 @@ export default function InvitePage({ params }: { params: { token: string } }) {
   const [user, setUser] = useState<InviteUser | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.push(`/auth/login?redirectTo=/invite/${params.token}`);
-      return;
-    }
-
-    setUser(user);
-    await validateInvite();
-  };
-
-  const validateInvite = async () => {
+  const validateInvite = useCallback(async () => {
     try {
       const response = await fetch(`/api/invites/validate`, {
         method: 'POST',
@@ -61,7 +42,26 @@ export default function InvitePage({ params }: { params: { token: string } }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.token]);
+
+  const checkAuth = useCallback(async () => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push(`/auth/login?redirectTo=/invite/${params.token}`);
+      return;
+    }
+
+    setUser(user);
+    await validateInvite();
+  }, [params.token, router, validateInvite]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const handleAccept = async () => {
     setAccepting(true);

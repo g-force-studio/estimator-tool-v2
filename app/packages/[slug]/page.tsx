@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { cachePackage, getCachedPackage } from '@/lib/db/idb';
 import { PaperclipIcon } from '@/components/icons';
 
@@ -50,11 +50,7 @@ export default function PackagePage({ params }: { params: { slug: string } }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadPackage();
-  }, [params.slug]);
-
-  const loadPackage = async () => {
+  const loadPackage = useCallback(async () => {
     try {
       const cached = await getCachedPackage(params.slug);
       if (cached) {
@@ -87,7 +83,11 @@ export default function PackagePage({ params }: { params: { slug: string } }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.slug]);
+
+  useEffect(() => {
+    loadPackage();
+  }, [loadPackage]);
 
   const getSignedUrl = (bucket: string, path: string) => {
     const asset = assets.find((a) => a.bucket === bucket && a.path === path);
@@ -134,12 +134,15 @@ export default function PackagePage({ params }: { params: { slug: string } }) {
       >
         <div className="max-w-4xl mx-auto">
           {logoUrl && (
-            <img
-              src={logoUrl}
-              alt={brand.brand_name}
-              className="h-12 mb-3"
-              onError={handleImageError}
-            />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={logoUrl}
+                alt={brand.brand_name}
+                className="h-12 mb-3"
+                onError={handleImageError}
+              />
+            </>
           )}
           <h1 className="text-2xl font-bold text-white">{brand.brand_name}</h1>
         </div>
@@ -179,12 +182,15 @@ export default function PackagePage({ params }: { params: { slug: string } }) {
                 {item.type === 'file' && item.content_json?.storage_bucket && (
                   <div>
                     {item.content_json.mime_type?.startsWith('image/') ? (
-                      <img
-                        src={getSignedUrl(item.content_json.storage_bucket, item.content_json.storage_path)}
-                        alt={item.content_json.original_name}
-                        className="max-w-full h-auto rounded"
-                        onError={handleImageError}
-                      />
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={getSignedUrl(item.content_json.storage_bucket, item.content_json.storage_path)}
+                          alt={item.content_json.original_name}
+                          className="max-w-full h-auto rounded"
+                          onError={handleImageError}
+                        />
+                      </>
                     ) : (
                       <p className="text-sm text-muted-foreground flex items-center gap-2">
                         <PaperclipIcon className="h-4 w-4" />

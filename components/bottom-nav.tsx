@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { ClipboardIcon, DocumentIcon, HomeIcon, SettingsIcon } from '@/components/icons';
+import { DocumentIcon, HomeIcon, SettingsIcon } from '@/components/icons';
 
 const navItems = [
   { href: '/', label: 'Home', icon: HomeIcon },

@@ -69,22 +69,22 @@ export async function POST(request: Request) {
 
     let jobItems: Array<Record<string, unknown>> = [];
     if (lineItems.length > 0) {
+      const itemsToInsert = lineItems.map((item, index) => ({
+        job_id: job.id,
+        type: 'line_item' as const,
+        title: item.name,
+        content_json: {
+          description: item.description || '',
+          unit: item.unit,
+          unit_price: item.unit_price,
+          quantity: item.quantity,
+        },
+        order_index: index,
+      }));
+
       const { data: items, error: itemsError } = await supabase
         .from('job_items')
-        .insert(
-          lineItems.map((item, index) => ({
-            job_id: job.id,
-            type: 'line_item',
-            title: item.name,
-            content_json: {
-              description: item.description || '',
-              unit: item.unit,
-              unit_price: item.unit_price,
-              quantity: item.quantity,
-            },
-            order_index: index,
-          }))
-        )
+        .insert(itemsToInsert)
         .select();
 
       if (itemsError) throw itemsError;

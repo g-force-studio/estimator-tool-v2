@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
 import { createClient } from '@/lib/supabase/client';
@@ -23,12 +23,6 @@ const applyTheme = (preference: ThemePreference) => {
   document.documentElement.classList.toggle('dark', resolved === 'dark');
   document.documentElement.style.colorScheme = resolved;
 };
-
-interface Workspace {
-  id: string;
-  name: string;
-  created_at: string;
-}
 
 interface WorkspaceBrand {
   workspace_id: string;
@@ -60,7 +54,6 @@ interface Invite {
 export default function SettingsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('workspace');
-  const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [brand, setBrand] = useState<WorkspaceBrand | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -83,7 +76,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, [loadData]);
 
   useEffect(() => {
     const loadCurrentUser = async () => {
@@ -111,13 +104,12 @@ export default function SettingsPage() {
     applyTheme(next);
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const wsResponse = await fetch('/api/workspaces');
       if (wsResponse.ok) {
         const wsData = await wsResponse.json();
-        setWorkspace(wsData);
         setWorkspaceName(wsData.name);
       }
 
@@ -180,7 +172,7 @@ export default function SettingsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeTab]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -561,11 +553,14 @@ export default function SettingsPage() {
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                       />
                       {logoPreview && (
-                        <img
-                          src={logoPreview}
-                          alt="Logo preview"
-                          className="mt-2 h-20 object-contain"
-                        />
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={logoPreview}
+                            alt="Logo preview"
+                            className="mt-2 h-20 object-contain"
+                          />
+                        </>
                       )}
                     </div>
                     {/* Accent color is reserved for future theming. */}

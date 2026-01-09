@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { jobSchema } from '@/lib/validations';
-import { getJob, updateJob, deleteJob, addJobDraft, getJobDraft, createTemplate } from '@/lib/db/idb';
+import { getJob, updateJob, deleteJob, addJobDraft, createTemplate } from '@/lib/db/idb';
 import { addToSyncQueue } from '@/lib/db/sync';
 import { addToUploadQueue } from '@/lib/db/upload';
 import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
@@ -69,14 +69,14 @@ export default function JobDetailPage() {
     resolver: zodResolver(jobSchema),
   });
 
-  const applyJobToForm = (jobData: Partial<Job>) => {
+  const applyJobToForm = useCallback((jobData: Partial<Job>) => {
     Object.entries(jobData).forEach(([key, value]) => {
       if (key in jobSchema.shape) {
         const normalizedValue = value === null ? undefined : value;
         setValue(key as keyof JobFormData, normalizedValue as JobFormData[keyof JobFormData]);
       }
     });
-  };
+  }, [setValue]);
 
   const mapJobItemsToLineItems = (items?: Job['job_items']) => {
     if (!items) return [];
@@ -147,7 +147,7 @@ export default function JobDetailPage() {
     };
 
     loadJob();
-  }, [jobId, isOnline, setValue]);
+  }, [jobId, isOnline, applyJobToForm]);
 
   useEffect(() => {
     if (job?.job_items) {
@@ -194,15 +194,19 @@ export default function JobDetailPage() {
     }
   };
 
-  const saveDraft = debounce(async (data: Partial<JobFormData>) => {
-    if (isEditing) {
-      await addJobDraft({
-        id: jobId,
-        data,
-        updated_at: Date.now(),
-      });
-    }
-  }, DRAFT_DEBOUNCE_MS);
+  const saveDraft = useMemo(
+    () =>
+      debounce(async (data: Partial<JobFormData>) => {
+        if (isEditing) {
+          await addJobDraft({
+            id: jobId,
+            data,
+            updated_at: Date.now(),
+          });
+        }
+      }, DRAFT_DEBOUNCE_MS),
+    [isEditing, jobId]
+  );
 
   useEffect(() => {
     if (isEditing) {
@@ -211,7 +215,7 @@ export default function JobDetailPage() {
       });
       return () => subscription.unsubscribe();
     }
-  }, [watch, isEditing]);
+  }, [watch, isEditing, saveDraft]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -650,6 +654,7 @@ export default function JobDetailPage() {
                   {job.photos.map((photo) => (
                     <div key={photo.id} className="space-y-1">
                       <a href={photo.url} target="_blank" rel="noopener noreferrer">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={photo.url}
                           alt={photo.file_name}
@@ -924,6 +929,7 @@ export default function JobDetailPage() {
                 <div className="mt-4 grid grid-cols-3 gap-2">
                   {photoPreviewUrls.map((url, index) => (
                     <div key={index} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={url}
                         alt={`Preview ${index + 1}`}

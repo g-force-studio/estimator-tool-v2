@@ -36,10 +36,13 @@ export function WorkspaceLogo({ className }: { className?: string }) {
   if (!brand?.logo_url) return null;
 
   return (
-    <img
-      src={brand.logo_url}
-      alt={brand.brand_name || 'Workspace logo'}
-      className={className}
-    />
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={brand.logo_url}
+        alt={brand.brand_name || 'Workspace logo'}
+        className={className}
+      />
+    </>
   );
 }

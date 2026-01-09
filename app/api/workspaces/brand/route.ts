@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { SIGNED_URL_TTL_SECONDS } from '@/lib/config';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = createServerClient();
 

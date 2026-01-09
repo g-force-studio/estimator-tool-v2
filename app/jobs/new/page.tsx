@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -84,24 +84,28 @@ export default function NewJobPage() {
     loadDraft();
   }, [setValue]);
 
-  const saveDraft = debounce(async (data: JobDraftPayload) => {
-    await addJobDraft({
-      id: 'new',
-      data,
-      updated_at: Date.now(),
-    });
-  }, DRAFT_DEBOUNCE_MS);
+  const saveDraft = useMemo(
+    () =>
+      debounce(async (data: JobDraftPayload) => {
+        await addJobDraft({
+          id: 'new',
+          data,
+          updated_at: Date.now(),
+        });
+      }, DRAFT_DEBOUNCE_MS),
+    []
+  );
 
   useEffect(() => {
     const subscription = watch((data) => {
       saveDraft({ ...data, line_items: lineItems });
     });
     return () => subscription.unsubscribe();
-  }, [watch, lineItems]);
+  }, [watch, lineItems, saveDraft]);
 
   useEffect(() => {
     saveDraft({ ...getValues(), line_items: lineItems });
-  }, [lineItems, getValues]);
+  }, [lineItems, getValues, saveDraft]);
 
   const uploadPhotos = async (jobId: string, photosToUpload: File[]) => {
     if (photosToUpload.length === 0) return;
@@ -571,6 +575,7 @@ export default function NewJobPage() {
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {photoPreviewUrls.map((url, index) => (
                   <div key={index} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={url}
                       alt={`Preview ${index + 1}`}
