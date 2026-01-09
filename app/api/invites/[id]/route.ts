@@ -16,11 +16,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: currentMember } = await supabase
+    const { data } = await supabase
       .from('workspace_members')
       .select('role')
       .eq('user_id', user.id)
       .single();
+
+    const currentMember = data as { role: 'owner' | 'admin' | 'member' } | null;
 
     if (!currentMember || (currentMember.role !== 'owner' && currentMember.role !== 'admin')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
