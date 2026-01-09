@@ -9,8 +9,11 @@ A production-ready, mobile-first, offline-first web application for job packagin
 - 📱 **Mobile-First Design** - Optimized for iPhone-size screens with thumb-friendly navigation
 - 📴 **Offline-First** - Full functionality with intermittent connectivity using IndexedDB
 - 📸 **Photo Uploads** - Attach photos to jobs with offline queue support
-- 📋 **Job Management** - Create, edit, and track jobs with templates
+- 📋 **Job Management** - Create, edit, and track jobs with optional line items
+- 🧾 **Line Items** - Add detailed pricing rows to jobs and persist them as `job_items`
+- 🧩 **Templates** - Save line items as reusable templates
 - 🎨 **Workspace Branding** - Custom logos, colors, and branded public packages
+- 💵 **Labor Rates** - Workspace defaults with per-job overrides
 - 👥 **Team Invites** - Email-based invite system with secure token handling
 - 📦 **Public Packages** - Shareable, branded job packages with automatic signed URL regeneration
 - 🔄 **Sync Queue** - Automatic synchronization with retry logic and conflict resolution
@@ -59,6 +62,15 @@ npm install
 4. Paste and run the SQL script
 5. Verify all tables, functions, and policies were created
 
+#### Apply Migrations
+
+Some changes are shipped as incremental migrations. Run the SQL files in `supabase/migrations/` in order:
+
+- `supabase/migrations/20260107_normalize_job_statuses.sql`
+- `supabase/migrations/20260107_add_profiles.sql`
+- `supabase/migrations/20260108_add_labor_rates.sql`
+- `supabase/migrations/20260109_add_line_item_job_items.sql`
+
 #### Set Up Storage Buckets
 
 Follow the instructions in `supabase/storage-setup.md`:
@@ -86,6 +98,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 SIGNED_URL_TTL_SECONDS=3600
 APP_BASE_URL=http://localhost:3000
 INVITE_TOKEN_PEPPER=your-random-secret-pepper-string-min-32-chars
+NEXT_PUBLIC_N8N_WEBHOOK_URL=https://your-n8n-webhook-url
 ```
 
 **Important:**
@@ -93,6 +106,7 @@ INVITE_TOKEN_PEPPER=your-random-secret-pepper-string-min-32-chars
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only and should NEVER be exposed to the browser
 - `INVITE_TOKEN_PEPPER` should be a random string (32+ characters) for security
 - Generate a secure pepper: `openssl rand -base64 32`
+- `NEXT_PUBLIC_N8N_WEBHOOK_URL` is required to submit jobs into the n8n pipeline
 
 ### 4. Run Development Server
 
@@ -362,7 +376,8 @@ relaykit/
 │   ├── page.tsx          # Home page
 │   └── providers.tsx     # Client providers
 ├── components/           # Reusable components
-│   └── bottom-nav.tsx    # Mobile navigation
+│   ├── bottom-nav.tsx    # Mobile navigation
+│   └── workspace-logo.tsx # Workspace branding logo
 ├── lib/
 │   ├── config.ts         # Centralized configuration
 │   ├── db/               # IndexedDB layer
@@ -378,6 +393,7 @@ relaykit/
 │   └── validations.ts    # Zod schemas
 ├── supabase/
 │   ├── schema.sql        # Database schema
+│   ├── migrations/       # Incremental schema changes
 │   └── storage-setup.md  # Storage configuration
 ├── public/               # Static assets
 ├── .env.example          # Environment variables template
@@ -464,6 +480,8 @@ The app can be deployed to any platform that supports Next.js:
 - [ ] User can sign in with magic link
 - [ ] User can create a workspace
 - [ ] User can create a job
+- [ ] User can add line items to a job
+- [ ] User can save a job's line items as a template
 - [ ] User can upload a photo to a job
 - [ ] Admin can invite a team member
 - [ ] Invitee can accept invite
