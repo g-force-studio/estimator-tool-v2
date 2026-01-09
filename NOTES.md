@@ -181,6 +181,20 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Set tax/markup/hourly rate defaults in Settings
     - [ ] Test Submit → OpenAI estimate flow with photos
 
+- Date/Time (2026-01-09 15:44), Session Goal: Resolve build/type issues and lint warnings
+  - What changed:
+    - Fixed Supabase type definitions (jobs status enum, job_files/job_inputs/ai_outputs tables, relationships)
+    - Added safe typings to invites/jobs routes and estimate pipeline
+    - Cleaned up lint warnings (unused vars, hook deps, no-img-element annotations)
+    - Verified `npm run lint` passes with no warnings
+  - Decisions made:
+    - Prefer local types/unknown over explicit any
+  - Open questions / risks:
+    - End-to-end OpenAI estimate flow still needs runtime verification
+  - Next actions:
+    - [ ] Run `npm run build` to confirm production build passes
+    - [ ] Test Submit → OpenAI estimate flow with photos
+
 ## Running TODO (prioritized)
 1) Integrate OpenAI estimation workflow end-to-end (request, AI output, PDF, job updates)
 2) Add job estimate summary + PDF link in list/detail UI
