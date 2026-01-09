@@ -65,6 +65,54 @@ Use this file to capture decisions, changes, and open questions after each worki
   - Next actions:
     - [ ] Verify Submit flow after status constraint fix and policy update
     - [ ] Address templates import error in app/templates/page.tsx
+- Date/Time (2026-01-07 20:35), Session Goal: Stabilize auth UX, templates cache, and members display
+  - What changed:
+    - Added sign-out action in Settings and cleaned members list presentation
+    - Fixed templates list import error by using cached templates helper
+    - Added profiles table + RLS for member email display
+    - Removed Jobs tab from bottom nav
+  - Decisions made:
+    - Use profiles table in public schema to surface member emails securely
+  - Open questions / risks:
+    - Profiles migration must be run in Supabase to show emails
+  - Next actions:
+    - [ ] Run `supabase/migrations/20260107_add_profiles.sql` in Supabase
+    - [ ] Verify members list shows email + badges
+    - [ ] Re-test Submit → n8n flow end-to-end
+- Date/Time (2026-01-08 21:01), Session Goal: Fix photo persistence, branding visibility, labor rates, and form performance
+  - What changed:
+    - Added job photo persistence via job_files with storage fallback and photo links in job detail
+    - Normalized edit form values to avoid save blocking on nulls; disabled submit after submission and redirect to home
+    - Added workspace logo rendering in home/jobs headers
+    - Added labor rate fields (workspace default + job), updated validation/types, and included rates in n8n payload
+    - Improved job create/edit performance by uploading photos asynchronously
+    - Added migration for labor_rate columns
+  - Decisions made:
+    - Use workspace_brand for default labor_rate and job-level override for selection
+    - Allow storage listing fallback when job_files table is missing
+  - Open questions / risks:
+    - Ensure `job_files` table exists in Supabase and RLS policies are applied
+    - Run labor_rate migration in Supabase
+  - Next actions:
+    - [ ] Run `supabase/migrations/20260108_add_labor_rates.sql` in Supabase
+    - [ ] Verify new jobs include labor_rate and n8n payload has labor_rate/workspace_labor_rate
+    - [ ] Confirm photos persist via job_files once table exists
+
+- Date/Time (2026-01-09 10:30), Session Goal: Enable line items on jobs + save job items as templates
+  - What changed:
+    - Added line item UI for new/edit job with empty default and template save action via kebab menu
+    - Added template save flow from job line items (online + offline queue)
+    - Persisted line items via job_items using new line_item type; updated job create/update APIs
+    - Added migration and schema update for job_items line_item type; updated types/validation
+  - Decisions made:
+    - Use job_items with explicit line_item type (migration) for long-term modeling
+    - Keep template items stored in templates.template_items_json
+  - Open questions / risks:
+    - Ensure new migration is applied in Supabase and clients pick up the updated job_items CHECK constraint
+  - Next actions:
+    - [ ] Run `supabase/migrations/20260109_add_line_item_job_items.sql` in Supabase
+    - [ ] Create/edit a job with line items, then save as template and confirm it appears in Templates
+    - [ ] Confirm job detail view shows line items and total
 
 ## Running TODO (prioritized)
 1) Wire n8n estimate workflow end-to-end (request, AI output, PDF, job updates)

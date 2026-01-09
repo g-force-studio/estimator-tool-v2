@@ -1,19 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { jobSchema } from '@/lib/validations';
-import { getJob, updateJob, deleteJob, addJobDraft, getJobDraft } from '@/lib/db/idb';
+import { getJob, updateJob, deleteJob, addJobDraft, getJobDraft, createTemplate } from '@/lib/db/idb';
 import { addToSyncQueue } from '@/lib/db/sync';
 import { addToUploadQueue } from '@/lib/db/upload';
 import { DRAFT_DEBOUNCE_MS, N8N_WEBHOOK_URL } from '@/lib/config';
 import { debounce, formatDateTime } from '@/lib/utils';
-import { OfflineIcon } from '@/components/icons';
+import { MoreIcon, OfflineIcon } from '@/components/icons';
 import type { z } from 'zod';
 
 type JobFormData = z.infer<typeof jobSchema>;
+
+type LineItem = {
+  id: string;
+  name: string;
+  description?: string;
+  unit: 'each' | 'sqft' | 'lnft' | 'hour' | 'day';
+  unit_price: number;
+  quantity: number;
+};
 
 interface Job extends JobFormData {
   id: string;
@@ -42,6 +51,11 @@ export default function JobDetailPage() {
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingJob, setIsSubmittingJob] = useState(false);
+  const [workspaceLaborRate, setWorkspaceLaborRate] = useState<number | null>(null);
+  const [lineItems, setLineItems] = useState<LineItem[]>([]);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isMountedRef = useRef(true);
   const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
     : '';
@@ -55,6 +69,37 @@ export default function JobDetailPage() {
   } = useForm<JobFormData>({
     resolver: zodResolver(jobSchema),
   });
+
+  const applyJobToForm = (jobData: Partial<Job>) => {
+    Object.entries(jobData).forEach(([key, value]) => {
+      if (key in jobSchema.shape) {
+        const normalizedValue = value === null ? undefined : value;
+        setValue(key as keyof JobFormData, normalizedValue as JobFormData[keyof JobFormData]);
+      }
+    });
+  };
+
+  const mapJobItemsToLineItems = (items?: Job['job_items']) => {
+    if (!items) return [];
+    return items
+      .filter((item) => item.type === 'line_item')
+      .map((item) => {
+        const content = (item.content_json || {}) as {
+          description?: string;
+          unit?: LineItem['unit'];
+          unit_price?: number;
+          quantity?: number;
+        };
+        return {
+          id: item.id,
+          name: item.title,
+          description: content.description || '',
+          unit: content.unit || 'each',
+          unit_price: content.unit_price ?? 0,
+          quantity: content.quantity ?? 1,
+        };
+      });
+  };
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -71,17 +116,19 @@ export default function JobDetailPage() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const loadJob = async () => {
       setIsLoading(true);
       try {
         const cachedJob = await getJob(jobId);
         if (cachedJob) {
           setJob(cachedJob as Job);
-          Object.entries(cachedJob).forEach(([key, value]) => {
-            if (key in jobSchema.shape) {
-              setValue(key as keyof JobFormData, value);
-            }
-          });
+          applyJobToForm(cachedJob as Job);
         }
 
         if (isOnline) {
@@ -90,11 +137,7 @@ export default function JobDetailPage() {
             const data = await response.json();
             setJob(data);
             await updateJob({ ...data, id: jobId });
-            Object.entries(data).forEach(([key, value]) => {
-              if (key in jobSchema.shape) {
-                setValue(key as keyof JobFormData, value);
-              }
-            });
+            applyJobToForm(data);
           }
         }
       } catch (error) {
@@ -106,6 +149,69 @@ export default function JobDetailPage() {
 
     loadJob();
   }, [jobId, isOnline, setValue]);
+
+  useEffect(() => {
+    if (job?.job_items) {
+      setLineItems(mapJobItemsToLineItems(job.job_items));
+    }
+  }, [job?.job_items]);
+
+  const uploadPhotos = async (jobIdToUse: string, photosToUpload: File[]) => {
+    if (photosToUpload.length === 0) return;
+
+    await Promise.all(
+      photosToUpload.map(async (photo) => {
+        const formData = new FormData();
+        formData.append('file', photo);
+        formData.append('jobId', jobIdToUse);
+        formData.append('jobItemId', 'general');
+
+        try {
+          await fetch('/api/uploads', {
+            method: 'POST',
+            body: formData,
+          });
+        } catch (error) {
+          console.error('Photo upload failed, adding to queue:', error);
+          await addToUploadQueue({
+            id: crypto.randomUUID(),
+            file: photo,
+            job_id: jobIdToUse,
+            status: 'pending',
+            created_at: Date.now(),
+          });
+        }
+      })
+    );
+
+    if (!isMountedRef.current) return;
+    const refreshedResponse = await fetch(`/api/jobs/${jobIdToUse}`);
+    if (refreshedResponse.ok) {
+      const refreshedJob = await refreshedResponse.json();
+      if (isMountedRef.current) {
+        setJob(refreshedJob);
+      }
+      await updateJob(refreshedJob);
+    }
+  };
+
+  useEffect(() => {
+    const loadBrand = async () => {
+      if (!isOnline) return;
+      try {
+        const response = await fetch('/api/workspaces/brand');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data?.labor_rate !== undefined && data?.labor_rate !== null) {
+          setWorkspaceLaborRate(data.labor_rate);
+        }
+      } catch (error) {
+        console.error('Failed to load workspace labor rate:', error);
+      }
+    };
+
+    loadBrand();
+  }, [isOnline]);
 
   const saveDraft = debounce(async (data: Partial<JobFormData>) => {
     if (isEditing) {
@@ -144,6 +250,102 @@ export default function JobDetailPage() {
     setPhotoPreviewUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const addLineItem = () => {
+    setLineItems((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name: '',
+        description: '',
+        unit: 'each',
+        unit_price: 0,
+        quantity: 1,
+      },
+    ]);
+  };
+
+  const updateLineItem = <K extends keyof LineItem>(
+    index: number,
+    key: K,
+    value: LineItem[K]
+  ) => {
+    setLineItems((prev) =>
+      prev.map((item, itemIndex) => (itemIndex === index ? { ...item, [key]: value } : item))
+    );
+  };
+
+  const removeLineItem = (index: number) => {
+    setLineItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const calculateLineItemsTotal = () => {
+    return lineItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+  };
+
+  const getValidLineItems = () => {
+    return lineItems.filter((item) => item.name.trim());
+  };
+
+  const handleSaveAsTemplate = async () => {
+    setIsMenuOpen(false);
+    const validItems = getValidLineItems();
+    if (validItems.length === 0) {
+      alert('Add at least one line item before saving as a template.');
+      return;
+    }
+
+    const nameDefault = job?.title || 'New Template';
+    const name = prompt('Template name', nameDefault);
+    if (!name) return;
+
+    const payload = {
+      name: name.trim(),
+      description: job?.description_md || undefined,
+      items: validItems.map(({ name: itemName, description, unit, unit_price, quantity }) => ({
+        name: itemName,
+        description,
+        unit,
+        unit_price,
+        quantity,
+      })),
+    };
+
+    try {
+      if (isOnline) {
+        const response = await fetch('/api/templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) throw new Error('Failed to create template');
+        const result = await response.json();
+        await createTemplate(result);
+        alert('Template saved.');
+      } else {
+        const templateData = {
+          id: crypto.randomUUID(),
+          ...payload,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        await createTemplate(templateData);
+        await addToSyncQueue({
+          id: crypto.randomUUID(),
+          operation: 'create',
+          table: 'templates',
+          data: templateData,
+          created_at: Date.now(),
+          retry_count: 0,
+        });
+        alert('Template saved locally. It will sync when you are online.');
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      alert('Failed to save template. Please try again.');
+    }
+  };
+
   const onSubmit = async (data: JobFormData) => {
     setIsSubmitting(true);
 
@@ -151,6 +353,7 @@ export default function JobDetailPage() {
       const payload = {
         ...data,
         due_date: data.due_date || undefined,
+        line_items: getValidLineItems(),
       };
       const updatedJob = {
         ...job,
@@ -169,33 +372,11 @@ export default function JobDetailPage() {
 
         const result = await response.json();
 
-        if (photos.length > 0) {
-          for (const photo of photos) {
-            const formData = new FormData();
-            formData.append('file', photo);
-            formData.append('jobId', jobId);
-            formData.append('jobItemId', 'general');
-
-            try {
-              await fetch('/api/uploads', {
-                method: 'POST',
-                body: formData,
-              });
-            } catch (error) {
-              console.error('Photo upload failed, adding to queue:', error);
-              await addToUploadQueue({
-                id: crypto.randomUUID(),
-                file: photo,
-                job_id: jobId,
-                status: 'pending',
-                created_at: Date.now(),
-              });
-            }
-          }
-        }
-
         setJob(result);
         await updateJob(result);
+
+        const photosToUpload = [...photos];
+        void uploadPhotos(jobId, photosToUpload);
       } else {
         await updateJob(updatedJob);
         await addToSyncQueue({
@@ -290,6 +471,7 @@ export default function JobDetailPage() {
     if (!confirm('Submit this job? This will mark it as delivered.')) return;
 
     try {
+      setIsSubmittingJob(true);
       const payload = {
         status: 'ai_pending',
         due_date: job?.due_date || undefined,
@@ -310,6 +492,11 @@ export default function JobDetailPage() {
           client_name: currentJob.client_name,
           description_md: currentJob.description_md,
           template_id: currentJob.template_id,
+          labor_rate:
+            currentJob.labor_rate !== undefined && currentJob.labor_rate !== null
+              ? currentJob.labor_rate
+              : workspaceLaborRate,
+          workspace_labor_rate: workspaceLaborRate,
           job_items: currentJob.job_items || [],
           photos: currentJob.photos || [],
           submitted_at: new Date().toISOString(),
@@ -341,6 +528,7 @@ export default function JobDetailPage() {
         setJob(updatedJob as Job);
         await updateJob(updatedJob);
         await triggerWebhook(updatedJob as Job);
+        router.push('/');
       } else {
         const updatedJob = {
           ...job,
@@ -363,8 +551,17 @@ export default function JobDetailPage() {
     } catch (error) {
       console.error('Error submitting job:', error);
       alert('Failed to submit job. Please try again.');
+    } finally {
+      setIsSubmittingJob(false);
     }
   };
+
+  const isSubmitDisabled =
+    isSubmittingJob ||
+    job?.status === 'ai_pending' ||
+    job?.status === 'ai_ready' ||
+    job?.status === 'pdf_pending' ||
+    job?.status === 'complete';
 
   if (isLoading) {
     return (
@@ -397,12 +594,35 @@ export default function JobDetailPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {isEditing ? 'Edit Job' : 'Job Details'}
           </h1>
-          {!isOnline && (
-            <span className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
-              <OfflineIcon className="h-4 w-4" />
-              Offline
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {!isOnline && (
+              <span className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
+                <OfflineIcon className="h-4 w-4" />
+                Offline
+              </span>
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen((prev) => !prev)}
+                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="More options"
+              >
+                <MoreIcon className="h-5 w-5" />
+              </button>
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                  <button
+                    type="button"
+                    onClick={handleSaveAsTemplate}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Save as template
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {!isEditing ? (
@@ -421,6 +641,40 @@ export default function JobDetailPage() {
               </div>
             )}
 
+            {lineItems.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Line Items</h3>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    ${calculateLineItemsTotal().toFixed(2)}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {lineItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-start justify-between text-sm text-gray-700 dark:text-gray-300"
+                    >
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white">{item.name}</div>
+                        {item.description && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {item.description}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {item.quantity} {item.unit} × ${item.unit_price.toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        ${(item.unit_price * item.quantity).toFixed(2)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</h3>
@@ -432,7 +686,7 @@ export default function JobDetailPage() {
                   job.status === 'complete' ? 'bg-green-200 text-green-800' :
                   'bg-red-200 text-red-800'
                 }`}>
-                  {job.status}
+                  {job.status === 'ai_pending' ? 'pending' : job.status}
                 </span>
               </div>
               {job.due_date && (
@@ -455,12 +709,23 @@ export default function JobDetailPage() {
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Photos</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {job.photos.map((photo) => (
-                    <img
-                      key={photo.id}
-                      src={photo.url}
-                      alt={photo.file_name}
-                      className="w-full h-24 object-cover rounded-lg"
-                    />
+                    <div key={photo.id} className="space-y-1">
+                      <a href={photo.url} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={photo.url}
+                          alt={photo.file_name}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                      </a>
+                      <a
+                        href={photo.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-xs text-blue-600 dark:text-blue-300 hover:underline"
+                      >
+                        Open photo
+                      </a>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -495,7 +760,8 @@ export default function JobDetailPage() {
               </button>
               <button
                 onClick={handleSubmitJob}
-                className="flex-1 min-w-[120px] px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                disabled={isSubmitDisabled}
+                className="flex-1 min-w-[120px] px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit
               </button>
@@ -556,6 +822,24 @@ export default function JobDetailPage() {
             </div>
 
             <div>
+              <label htmlFor="labor_rate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Labor Rate
+              </label>
+              <input
+                id="labor_rate"
+                type="number"
+                min="0"
+                step="0.01"
+                {...register('labor_rate', { valueAsNumber: true })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                placeholder="85"
+              />
+              {errors.labor_rate && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.labor_rate.message}</p>
+              )}
+            </div>
+
+            <div>
               <label htmlFor="client_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Client Name
               </label>
@@ -577,6 +861,131 @@ export default function JobDetailPage() {
                 {...register('due_date')}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
               />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Line Items
+                </label>
+                <button
+                  type="button"
+                  onClick={addLineItem}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  + Add line item
+                </button>
+              </div>
+
+              {lineItems.length === 0 ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Add line items if you want a detailed estimate.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {lineItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                          Item {index + 1}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => removeLineItem(index)}
+                          className="text-red-600 dark:text-red-400 text-sm hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <input
+                            value={item.name}
+                            onChange={(e) => updateLineItem(index, 'name', e.target.value)}
+                            placeholder="Item name"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <textarea
+                            value={item.description || ''}
+                            onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                            placeholder="Description (optional)"
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                              Unit
+                            </label>
+                            <select
+                              value={item.unit}
+                              onChange={(e) =>
+                                updateLineItem(index, 'unit', e.target.value as LineItem['unit'])
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                            >
+                              <option value="each">Each</option>
+                              <option value="sqft">Sq Ft</option>
+                              <option value="lnft">Ln Ft</option>
+                              <option value="hour">Hour</option>
+                              <option value="day">Day</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                              Price
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={item.unit_price}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  'unit_price',
+                                  e.target.value === '' ? 0 : Number(e.target.value)
+                                )
+                              }
+                              placeholder="0.00"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                              Qty
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={item.quantity}
+                              onChange={(e) =>
+                                updateLineItem(
+                                  index,
+                                  'quantity',
+                                  e.target.value === '' ? 0 : Number(e.target.value)
+                                )
+                              }
+                              placeholder="1"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>

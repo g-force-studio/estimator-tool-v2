@@ -21,7 +21,12 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json(templates);
+    const normalized = (templates ?? []).map((template) => ({
+      ...template,
+      items: template.template_items_json ?? [],
+    }));
+
+    return NextResponse.json(normalized);
   } catch (error) {
     console.error('Error fetching templates:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -53,11 +58,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validated = templateSchema.parse(body);
 
+    const { items, ...rest } = validated;
     const { data: template, error } = await supabase
       .from('templates')
       .insert([
         {
-          ...validated,
+          ...rest,
+          template_items_json: items,
           workspace_id: member.workspace_id,
           created_by_user_id: user.id,
         },
@@ -67,7 +74,13 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json(template, { status: 201 });
+    return NextResponse.json(
+      {
+        ...template,
+        items: template.template_items_json ?? [],
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error creating template:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -5,28 +5,42 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { jobSchema } from '@/lib/validations';
-import { createJob, addJobDraft, getJobDraft, deleteJobDraft } from '@/lib/db/idb';
+import { createJob, addJobDraft, getJobDraft, deleteJobDraft, createTemplate } from '@/lib/db/idb';
 import { addToSyncQueue } from '@/lib/db/sync';
 import { addToUploadQueue } from '@/lib/db/upload';
 import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
 import { debounce } from '@/lib/utils';
-import { OfflineIcon } from '@/components/icons';
+import { MoreIcon, OfflineIcon } from '@/components/icons';
 import type { z } from 'zod';
 
 type JobFormData = z.infer<typeof jobSchema>;
+
+type LineItem = {
+  id: string;
+  name: string;
+  description?: string;
+  unit: 'each' | 'sqft' | 'lnft' | 'hour' | 'day';
+  unit_price: number;
+  quantity: number;
+};
+
+type JobDraftPayload = Partial<JobFormData> & { line_items?: LineItem[] };
 
 export default function NewJobPage() {
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
+  const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<JobFormData>({
     resolver: zodResolver(jobSchema),
@@ -36,6 +50,7 @@ export default function NewJobPage() {
       status: 'draft',
       client_name: '',
       due_date: '',
+      labor_rate: undefined,
     },
   });
 
@@ -58,14 +73,37 @@ export default function NewJobPage() {
       const draft = await getJobDraft('new');
       if (draft) {
         Object.entries(draft.data).forEach(([key, value]) => {
-          setValue(key as keyof JobFormData, value);
+          if (key in jobSchema.shape) {
+            setValue(key as keyof JobFormData, value);
+          }
         });
+        if (draft.data.line_items) {
+          setLineItems(draft.data.line_items as LineItem[]);
+        }
       }
     };
     loadDraft();
   }, [setValue]);
 
-  const saveDraft = debounce(async (data: Partial<JobFormData>) => {
+  useEffect(() => {
+    const loadBrandDefaults = async () => {
+      try {
+        const response = await fetch('/api/workspaces/brand');
+        if (!response.ok) return;
+        const data = await response.json();
+        const currentRate = getValues('labor_rate');
+        if ((currentRate === undefined || Number.isNaN(currentRate)) && data.labor_rate !== null && data.labor_rate !== undefined) {
+          setValue('labor_rate', data.labor_rate);
+        }
+      } catch (error) {
+        console.error('Failed to load workspace labor rate:', error);
+      }
+    };
+
+    loadBrandDefaults();
+  }, [getValues, setValue]);
+
+  const saveDraft = debounce(async (data: JobDraftPayload) => {
     await addJobDraft({
       id: 'new',
       data,
@@ -75,10 +113,43 @@ export default function NewJobPage() {
 
   useEffect(() => {
     const subscription = watch((data) => {
-      saveDraft(data);
+      saveDraft({ ...data, line_items: lineItems });
     });
     return () => subscription.unsubscribe();
-  }, [watch]);
+  }, [watch, lineItems]);
+
+  useEffect(() => {
+    saveDraft({ ...getValues(), line_items: lineItems });
+  }, [lineItems, getValues]);
+
+  const uploadPhotos = async (jobId: string, photosToUpload: File[]) => {
+    if (photosToUpload.length === 0) return;
+
+    await Promise.all(
+      photosToUpload.map(async (photo) => {
+        const formData = new FormData();
+        formData.append('file', photo);
+        formData.append('jobId', jobId);
+        formData.append('jobItemId', 'general');
+
+        try {
+          await fetch('/api/uploads', {
+            method: 'POST',
+            body: formData,
+          });
+        } catch (error) {
+          console.error('Photo upload failed, adding to queue:', error);
+          await addToUploadQueue({
+            id: crypto.randomUUID(),
+            file: photo,
+            job_id: jobId,
+            status: 'pending',
+            created_at: Date.now(),
+          });
+        }
+      })
+    );
+  };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -98,6 +169,98 @@ export default function NewJobPage() {
     setPhotoPreviewUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const addLineItem = () => {
+    setLineItems((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        name: '',
+        description: '',
+        unit: 'each',
+        unit_price: 0,
+        quantity: 1,
+      },
+    ]);
+  };
+
+  const updateLineItem = <K extends keyof LineItem>(
+    index: number,
+    key: K,
+    value: LineItem[K]
+  ) => {
+    setLineItems((prev) =>
+      prev.map((item, itemIndex) => (itemIndex === index ? { ...item, [key]: value } : item))
+    );
+  };
+
+  const removeLineItem = (index: number) => {
+    setLineItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const getValidLineItems = () => {
+    return lineItems.filter((item) => item.name.trim());
+  };
+
+  const handleSaveAsTemplate = async () => {
+    setIsMenuOpen(false);
+    const validItems = getValidLineItems();
+    if (validItems.length === 0) {
+      alert('Add at least one line item before saving as a template.');
+      return;
+    }
+
+    const nameDefault = getValues('title') || 'New Template';
+    const name = prompt('Template name', nameDefault);
+    if (!name) return;
+
+    const payload = {
+      name: name.trim(),
+      description: getValues('description_md') || undefined,
+      items: validItems.map(({ name: itemName, description, unit, unit_price, quantity }) => ({
+        name: itemName,
+        description,
+        unit,
+        unit_price,
+        quantity,
+      })),
+    };
+
+    try {
+      if (isOnline) {
+        const response = await fetch('/api/templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) throw new Error('Failed to create template');
+        const result = await response.json();
+        await createTemplate(result);
+        alert('Template saved.');
+      } else {
+        const templateData = {
+          id: crypto.randomUUID(),
+          ...payload,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        await createTemplate(templateData);
+        await addToSyncQueue({
+          id: crypto.randomUUID(),
+          operation: 'create',
+          table: 'templates',
+          data: templateData,
+          created_at: Date.now(),
+          retry_count: 0,
+        });
+        alert('Template saved locally. It will sync when you are online.');
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      alert('Failed to save template. Please try again.');
+    }
+  };
+
   const onSubmit = async (data: JobFormData) => {
     setIsSubmitting(true);
 
@@ -105,6 +268,7 @@ export default function NewJobPage() {
       const payload = {
         ...data,
         due_date: data.due_date || undefined,
+        line_items: getValidLineItems(),
       };
       const jobId = crypto.randomUUID();
       const jobData = {
@@ -126,30 +290,8 @@ export default function NewJobPage() {
         const result = await response.json();
         const createdJobId = result.id;
 
-        if (photos.length > 0) {
-          for (const photo of photos) {
-            const formData = new FormData();
-            formData.append('file', photo);
-            formData.append('jobId', createdJobId);
-            formData.append('jobItemId', 'general');
-
-            try {
-              await fetch('/api/uploads', {
-                method: 'POST',
-                body: formData,
-              });
-            } catch (error) {
-              console.error('Photo upload failed, adding to queue:', error);
-              await addToUploadQueue({
-                id: crypto.randomUUID(),
-                file: photo,
-                job_id: createdJobId,
-                status: 'pending',
-                created_at: Date.now(),
-              });
-            }
-          }
-        }
+        const photosToUpload = [...photos];
+        void uploadPhotos(createdJobId, photosToUpload);
 
         await deleteJobDraft('new');
         router.push(`/jobs/${createdJobId}`);
@@ -192,12 +334,35 @@ export default function NewJobPage() {
       <div className="max-w-2xl mx-auto p-4">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">New Job</h1>
-          {!isOnline && (
-            <span className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
-              <OfflineIcon className="h-4 w-4" />
-              Offline
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {!isOnline && (
+              <span className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
+                <OfflineIcon className="h-4 w-4" />
+                Offline
+              </span>
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen((prev) => !prev)}
+                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="More options"
+              >
+                <MoreIcon className="h-5 w-5" />
+              </button>
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                  <button
+                    type="button"
+                    onClick={handleSaveAsTemplate}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Save as template
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -232,6 +397,131 @@ export default function NewJobPage() {
               <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                 {errors.description_md.message}
               </p>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Line Items
+              </label>
+              <button
+                type="button"
+                onClick={addLineItem}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                + Add line item
+              </button>
+            </div>
+
+            {lineItems.length === 0 ? (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Add line items if you want a detailed estimate.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {lineItems.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                        Item {index + 1}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => removeLineItem(index)}
+                        className="text-red-600 dark:text-red-400 text-sm hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <input
+                          value={item.name}
+                          onChange={(e) => updateLineItem(index, 'name', e.target.value)}
+                          placeholder="Item name"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                        />
+                      </div>
+
+                      <div>
+                      <textarea
+                          value={item.description || ''}
+                          onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                          placeholder="Description (optional)"
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                            Unit
+                          </label>
+                          <select
+                            value={item.unit}
+                            onChange={(e) =>
+                              updateLineItem(index, 'unit', e.target.value as LineItem['unit'])
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                          >
+                            <option value="each">Each</option>
+                            <option value="sqft">Sq Ft</option>
+                            <option value="lnft">Ln Ft</option>
+                            <option value="hour">Hour</option>
+                            <option value="day">Day</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                            Price
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.unit_price}
+                            onChange={(e) =>
+                              updateLineItem(
+                                index,
+                                'unit_price',
+                                e.target.value === '' ? 0 : Number(e.target.value)
+                              )
+                            }
+                            placeholder="0.00"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                            Qty
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              updateLineItem(
+                                index,
+                                'quantity',
+                                e.target.value === '' ? 0 : Number(e.target.value)
+                              )
+                            }
+                            placeholder="1"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -283,6 +573,24 @@ export default function NewJobPage() {
               <option value="ai_error">AI Error</option>
               <option value="pdf_error">PDF Error</option>
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="labor_rate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Labor Rate
+            </label>
+            <input
+              id="labor_rate"
+              type="number"
+              min="0"
+              step="0.01"
+              {...register('labor_rate', { valueAsNumber: true })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+              placeholder="85"
+            />
+            {errors.labor_rate && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.labor_rate.message}</p>
+            )}
           </div>
 
           <div>

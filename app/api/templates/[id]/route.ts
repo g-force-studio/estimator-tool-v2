@@ -25,7 +25,10 @@ export async function GET(
 
     if (error) throw error;
 
-    return NextResponse.json(template);
+    return NextResponse.json({
+      ...template,
+      items: template.template_items_json ?? [],
+    });
   } catch (error) {
     console.error('Error fetching template:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -50,16 +53,23 @@ export async function PUT(
     const body = await request.json();
     const validated = templateSchema.parse(body);
 
+    const { items, ...rest } = validated;
     const { data: template, error } = await supabase
       .from('templates')
-      .update(validated)
+      .update({
+        ...rest,
+        template_items_json: items,
+      })
       .eq('id', params.id)
       .select()
       .single();
 
     if (error) throw error;
 
-    return NextResponse.json(template);
+    return NextResponse.json({
+      ...template,
+      items: template.template_items_json ?? [],
+    });
   } catch (error) {
     console.error('Error updating template:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

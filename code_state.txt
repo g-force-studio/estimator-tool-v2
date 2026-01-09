@@ -1,28 +1,34 @@
 Current focus:
-- Validate n8n submit flow and end-to-end estimate pipeline.
+- Verify line items persist on jobs and template save flow works; run new migration.
 
 What's working:
-- Jobs list/detail navigation and offline cache fallback.
-- PDF link open actions in job list/detail.
-- Job delete now works after adding missing RLS delete policy.
+- Templates now save with items mapped to template_items_json.
+- Line item UI exists on New and Edit Job, with optional entry and no default rows.
+- Save-as-template action available via kebab menu on job pages (online + offline).
 
 What's broken:
-- n8n end-to-end flow still not verified.
-- Templates page import error (getAllTemplates not exported) seen in console.
+- n8n end-to-end flow still not verified after recent payload changes.
 
 Latest files touched:
+- app/api/jobs/route.ts
 - app/api/jobs/[id]/route.ts
+- app/jobs/new/page.tsx
 - app/jobs/[id]/page.tsx
-- lib/config.ts
-- supabase/migrations/20260107_normalize_job_statuses.sql
+- app/api/templates/route.ts
+- app/api/templates/[id]/route.ts
+- components/icons.tsx
+- lib/validations.ts
+- lib/supabase/database.types.ts
+- supabase/migrations/20260109_add_line_item_job_items.sql
+- supabase/schema.sql
 
 Commands to run locally:
 - npm run dev
 
 Last successful end-to-end test:
-- Created a job, edited details, and navigated between Jobs and Home.
+- None yet for line items + template save.
 
 Next 3 concrete steps:
-1) Verify Submit → n8n webhook and downstream AI/PDF flow.
-2) Fix templates import error in app/templates/page.tsx.
-3) Add error surfacing for ai_error/pdf_error states.
+1) Run `supabase/migrations/20260109_add_line_item_job_items.sql` in Supabase.
+2) Create/edit a job with line items; verify they persist and show in Job Details.
+3) Save job line items as a template and confirm it appears in Templates.

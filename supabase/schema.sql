@@ -35,6 +35,7 @@ CREATE TABLE workspace_brand (
   accent_color TEXT,
   logo_bucket TEXT,
   logo_path TEXT,
+  labor_rate NUMERIC,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -76,6 +77,7 @@ CREATE TABLE jobs (
   client_name TEXT,
   description_md TEXT,
   template_id UUID REFERENCES templates(id),
+  labor_rate NUMERIC,
   totals_json JSONB,
   pdf_url TEXT,
   error_message TEXT,
@@ -122,7 +124,7 @@ CREATE INDEX job_files_kind_idx ON job_files(kind);
 CREATE TABLE job_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('text', 'link', 'file', 'checklist')),
+  type TEXT NOT NULL CHECK (type IN ('text', 'link', 'file', 'checklist', 'line_item')),
   title TEXT NOT NULL,
   content_json JSONB NOT NULL,
   order_index INTEGER NOT NULL,

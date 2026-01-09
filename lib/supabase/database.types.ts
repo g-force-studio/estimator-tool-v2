@@ -54,6 +54,7 @@ export interface Database {
           workspace_id: string
           brand_name: string
           accent_color: string | null
+          labor_rate: number | null
           logo_bucket: string | null
           logo_path: string | null
           updated_at: string
@@ -62,6 +63,7 @@ export interface Database {
           workspace_id: string
           brand_name: string
           accent_color?: string | null
+          labor_rate?: number | null
           logo_bucket?: string | null
           logo_path?: string | null
           updated_at?: string
@@ -70,6 +72,7 @@ export interface Database {
           workspace_id?: string
           brand_name?: string
           accent_color?: string | null
+          labor_rate?: number | null
           logo_bucket?: string | null
           logo_path?: string | null
           updated_at?: string
@@ -124,6 +127,7 @@ export interface Database {
           client_name: string | null
           description_md: string | null
           template_id: string | null
+          labor_rate: number | null
           totals_json: Json | null
           created_at: string
           updated_at: string
@@ -138,6 +142,7 @@ export interface Database {
           client_name?: string | null
           description_md?: string | null
           template_id?: string | null
+          labor_rate?: number | null
           totals_json?: Json | null
           created_at?: string
           updated_at?: string
@@ -152,6 +157,7 @@ export interface Database {
           client_name?: string | null
           description_md?: string | null
           template_id?: string | null
+          labor_rate?: number | null
           totals_json?: Json | null
           created_at?: string
           updated_at?: string
@@ -161,7 +167,7 @@ export interface Database {
         Row: {
           id: string
           job_id: string
-          type: 'text' | 'link' | 'file' | 'checklist'
+          type: 'text' | 'link' | 'file' | 'checklist' | 'line_item'
           title: string
           content_json: Json
           order_index: number
@@ -171,7 +177,7 @@ export interface Database {
         Insert: {
           id?: string
           job_id: string
-          type: 'text' | 'link' | 'file' | 'checklist'
+          type: 'text' | 'link' | 'file' | 'checklist' | 'line_item'
           title: string
           content_json: Json
           order_index: number
@@ -181,7 +187,7 @@ export interface Database {
         Update: {
           id?: string
           job_id?: string
-          type?: 'text' | 'link' | 'file' | 'checklist'
+          type?: 'text' | 'link' | 'file' | 'checklist' | 'line_item'
           title?: string
           content_json?: Json
           order_index?: number

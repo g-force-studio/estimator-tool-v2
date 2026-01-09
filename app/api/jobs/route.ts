@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
-import { jobSchema } from '@/lib/validations';
+import { jobSchema, lineItemSchema } from '@/lib/validations';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
 export async function GET() {
   try {
@@ -52,7 +53,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const validated = jobSchema.parse(body);
+    const { line_items, ...jobPayload } = body;
+    const validated = jobSchema.parse(jobPayload);
+    const lineItems = line_items ? z.array(lineItemSchema).parse(line_items) : [];
 
     const { data: job, error } = await supabase
       .from('jobs')
@@ -66,7 +69,31 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    return NextResponse.json(job);
+    let jobItems = [];
+    if (lineItems.length > 0) {
+      const { data: items, error: itemsError } = await supabase
+        .from('job_items')
+        .insert(
+          lineItems.map((item, index) => ({
+            job_id: job.id,
+            type: 'line_item',
+            title: item.name,
+            content_json: {
+              description: item.description || '',
+              unit: item.unit,
+              unit_price: item.unit_price,
+              quantity: item.quantity,
+            },
+            order_index: index,
+          }))
+        )
+        .select();
+
+      if (itemsError) throw itemsError;
+      jobItems = items ?? [];
+    }
+
+    return NextResponse.json({ ...job, job_items: jobItems });
   } catch (error: any) {
     console.error('Job creation error:', error);
     return NextResponse.json(
