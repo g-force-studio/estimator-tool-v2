@@ -1,17 +1,22 @@
 Current focus:
-- Verify Vercel deploy after middleware guard and finish OpenAI estimate flow test.
+- Validate iOS job create flow, photo persistence, and date input sizing after recent fixes.
 
 What's working:
-- Build passes locally.
-- Middleware now skips Supabase auth logic if required env vars are missing.
+- Theme toggle uses a custom event bridge and updates reliably on iOS.
+- Middleware guard prevents missing env crashes on Vercel.
+- Local build passes; Supabase env issues resolved in Vercel.
 
 What's broken:
-- Vercel deployment previously failed with MIDDLEWARE_INVOCATION_FAILED; needs re-test.
-- OpenAI estimate flow still not validated end-to-end.
-- GitHub push still pending (network restrictions).
+- Need confirmation that job creation on iPhone no longer lands on “Job not found”.
+- Need confirmation that photo uploads persist after save on iPhone.
+- Date input width fix needs re-verification on iOS.
 
 Latest files touched:
-- middleware.ts
+- app/providers.tsx
+- app/settings/page.tsx
+- app/jobs/new/page.tsx
+- app/jobs/[id]/page.tsx
+- app/globals.css
 - NOTES.md
 - code_state.txt
 
@@ -19,9 +24,9 @@ Commands to run locally:
 - npm run build
 
 Last successful end-to-end test:
-- Line item edit/save works after RLS policy fix.
+- Vercel deploy succeeds with Supabase env vars set.
 
 Next 3 concrete steps:
-1) Redeploy to Vercel and confirm middleware error is resolved.
-2) Test Submit → OpenAI estimate flow with photos.
-3) Retry `git push` once network access is enabled.
+1) Re-test iOS job create flow and confirm detail page loads.
+2) Confirm photo uploads persist after job save on iOS.
+3) Verify date input width is fixed on iPhone.

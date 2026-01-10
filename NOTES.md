@@ -222,6 +222,19 @@ Use this file to capture decisions, changes, and open questions after each worki
   - Next actions:
     - [ ] Verify Vercel deployment after middleware guard
 
+- Date/Time (2026-01-10 07:17), Session Goal: Fix iOS UX and job create flow reliability
+  - What changed:
+    - Added theme change event bridge for reliable light/dark/system toggles on iOS
+    - Clamped iOS date input width with global CSS and applied to job forms
+    - Stabilized job create flow with photo upload await + verify fetch and improved job load error handling
+  - Decisions made:
+    - Prefer deterministic theme changes via custom event instead of storage-only updates
+  - Open questions / risks:
+    - Re-test on iPhone to confirm job creation and photo persistence after latest changes
+  - Next actions:
+    - [ ] Verify iOS job create flow and date input width
+    - [ ] Test job photo persistence after save
+
 ## Running TODO (prioritized)
 1) Integrate OpenAI estimation workflow end-to-end (request, AI output, PDF, job updates)
 2) Add job estimate summary + PDF link in list/detail UI
