@@ -286,6 +286,12 @@ export default function NewJobPage() {
         void uploadPhotos(createdJobId, photosToUpload);
 
         await deleteJobDraft('new');
+        const verifyResponse = await fetch(`/api/jobs/${createdJobId}`);
+        if (!verifyResponse.ok) {
+          alert('Job saved, but it is not available yet. Please try again in a moment.');
+          router.push('/');
+          return;
+        }
         router.push(`/jobs/${createdJobId}`);
       } else {
         await createJob(jobData);
@@ -536,7 +542,7 @@ export default function NewJobPage() {
                 id="due_date"
                 type="date"
                 {...register('due_date')}
-                className="w-full max-w-full min-w-0 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white appearance-none"
+                className="date-input w-full max-w-full min-w-0 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white appearance-none"
               />
             </div>
             {errors.due_date && (

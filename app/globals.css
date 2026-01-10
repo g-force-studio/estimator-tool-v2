@@ -62,4 +62,13 @@
   .safe-top {
     padding-top: env(safe-area-inset-top);
   }
+
+  .date-input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    display: block;
+    -webkit-appearance: none;
+    appearance: none;
+  }
 }
