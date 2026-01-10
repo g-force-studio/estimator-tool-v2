@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import type { Database } from '@/lib/supabase/database.types';
 
 type RecordUploadRequest = {
   jobId?: string;
   storagePath?: string;
-  kind?: string;
+  kind?: 'image' | 'pdf';
 };
 
 export async function POST(request: Request) {
@@ -21,20 +22,22 @@ export async function POST(request: Request) {
     const body = (await request.json()) as RecordUploadRequest;
     const jobId = body.jobId?.trim();
     const storagePath = body.storagePath?.trim();
-    const kind = body.kind || 'image';
+    const kind: 'image' | 'pdf' = body.kind || 'image';
 
     if (!jobId || !storagePath) {
       return NextResponse.json({ error: 'Missing jobId or storagePath' }, { status: 400 });
     }
 
+    const payload: Database['public']['Tables']['job_files']['Insert'] = {
+      job_id: jobId,
+      kind,
+      storage_path: storagePath,
+      public_url: null,
+    };
+
     const { data, error } = await supabase
       .from('job_files')
-      .insert({
-        job_id: jobId,
-        kind,
-        storage_path: storagePath,
-        public_url: null,
-      })
+      .insert(payload)
       .select()
       .single();
 
