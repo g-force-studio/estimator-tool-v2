@@ -136,7 +136,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .eq('kind', 'image')
       .order('created_at', { ascending: true });
 
-    if (filesError && filesError.code !== 'PGRST205') throw filesError;
+    if (filesError && filesError.code !== 'PGRST205') {
+      console.error('Estimate job files fetch error:', filesError);
+    }
 
     const photos = await Promise.all(
       (jobFiles || []).map(async (file) => {

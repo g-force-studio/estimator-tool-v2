@@ -34,7 +34,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .eq('kind', 'image')
       .order('created_at', { ascending: true });
 
-    if (filesError && filesError.code !== 'PGRST205') throw filesError;
+    if (filesError && filesError.code !== 'PGRST205') {
+      console.error('Job files fetch error:', filesError);
+      return NextResponse.json({ ...job, photos });
+    }
 
     if (jobFiles && jobFiles.length > 0) {
       photos = await Promise.all(

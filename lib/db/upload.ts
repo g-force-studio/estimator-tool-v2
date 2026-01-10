@@ -5,6 +5,7 @@ import {
   enqueueUpload,
 } from './idb';
 import { SYNC_RETRY_DELAYS } from '../config';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
 
 let isProcessing = false;
 
@@ -28,6 +29,13 @@ type UploadPayload = {
   blob?: Blob;
   filename?: string;
   mimeType?: string;
+};
+
+type SignedUploadResponse = {
+  signed_url: string;
+  token: string;
+  path: string;
+  bucket: string;
 };
 
 export async function processUploadQueue() {
@@ -83,23 +91,84 @@ export async function addToUploadQueue(payload: UploadPayload) {
   });
 }
 
-async function uploadFile(item: UploadQueueItem) {
-  const formData = new FormData();
-  formData.append('file', item.blob, item.filename);
-  formData.append('jobId', item.jobId);
-  formData.append('jobItemId', item.jobItemId);
-  formData.append('mimeType', item.mimeType);
-
-  const response = await fetch('/api/uploads', {
+async function requestSignedUpload(payload: {
+  jobId: string;
+  jobItemId: string;
+  filename?: string;
+  mimeType?: string;
+}) {
+  const response = await fetch('/api/uploads/signed', {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error(`Upload failed: ${response.statusText}`);
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || 'Failed to create signed upload');
+  }
+
+  return (await response.json()) as SignedUploadResponse;
+}
+
+async function recordUploadedFile(payload: { jobId: string; storagePath: string; kind?: string }) {
+  const response = await fetch('/api/uploads/record', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || 'Failed to record upload');
   }
 
   return response.json();
+}
+
+export async function uploadJobPhoto(payload: {
+  jobId: string;
+  jobItemId?: string;
+  file: Blob;
+  filename?: string;
+  mimeType?: string;
+}) {
+  const signed = await requestSignedUpload({
+    jobId: payload.jobId,
+    jobItemId: payload.jobItemId || 'general',
+    filename: payload.filename,
+    mimeType: payload.mimeType,
+  });
+
+  const supabase = createBrowserClient();
+  const { error } = await supabase.storage
+    .from(signed.bucket)
+    .uploadToSignedUrl(signed.path, signed.token, payload.file, {
+      contentType: payload.mimeType,
+      upsert: false,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  await recordUploadedFile({
+    jobId: payload.jobId,
+    storagePath: signed.path,
+    kind: 'image',
+  });
+
+  return signed;
+}
+
+async function uploadFile(item: UploadQueueItem) {
+  return uploadJobPhoto({
+    jobId: item.jobId,
+    jobItemId: item.jobItemId,
+    file: item.blob,
+    filename: item.filename,
+    mimeType: item.mimeType,
+  });
 }
 
 if (typeof window !== 'undefined') {

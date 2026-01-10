@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { jobSchema } from '@/lib/validations';
 import { getJob, updateJob, deleteJob, addJobDraft, createTemplate } from '@/lib/db/idb';
 import { addToSyncQueue } from '@/lib/db/sync';
-import { addToUploadQueue } from '@/lib/db/upload';
+import { addToUploadQueue, uploadJobPhoto } from '@/lib/db/upload';
 import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
 import { debounce, formatDateTime } from '@/lib/utils';
 import { MoreIcon, OfflineIcon } from '@/components/icons';
@@ -230,24 +230,22 @@ export default function JobDetailPage() {
 
     await Promise.all(
       photosToUpload.map(async (photo) => {
-        const formData = new FormData();
-        formData.append('file', photo);
-        formData.append('jobId', jobIdToUse);
-        formData.append('jobItemId', 'general');
-
         try {
-          await fetch('/api/uploads', {
-            method: 'POST',
-            body: formData,
+          await uploadJobPhoto({
+            jobId: jobIdToUse,
+            jobItemId: 'general',
+            file: photo,
+            filename: photo.name,
+            mimeType: photo.type,
           });
-          } catch (error) {
-            console.error('Photo upload failed, adding to queue:', error);
-            await addToUploadQueue({
-              file: photo,
-              job_id: jobIdToUse,
-            });
-          }
-        })
+        } catch (error) {
+          console.error('Photo upload failed, adding to queue:', error);
+          await addToUploadQueue({
+            file: photo,
+            job_id: jobIdToUse,
+          });
+        }
+      })
     );
 
     if (!isMountedRef.current) return;
@@ -519,7 +517,10 @@ export default function JobDetailPage() {
           method: 'POST',
         });
 
-        if (!response.ok) throw new Error('Failed to submit job');
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          throw new Error(data?.error || 'Failed to submit job');
+        }
 
         const result = await response.json();
         const updatedJob = result.job ? { ...job, ...result.job } : job;
@@ -546,7 +547,8 @@ export default function JobDetailPage() {
       }
     } catch (error) {
       console.error('Error submitting job:', error);
-      alert('Failed to submit job. Please try again.');
+      const message = error instanceof Error ? error.message : 'Failed to submit job. Please try again.';
+      alert(message);
     } finally {
       setIsSubmittingJob(false);
     }

@@ -248,3 +248,17 @@ Use this file to capture decisions, changes, and open questions after each worki
 ## Workflow Notes
 - Before `/reset`, ask Codex to summarize into `code_state.txt`.
 - After `/reset`, start by reading `ARCHITECTURE.md` + `code_state.txt`.
+- Date/Time (2026-01-10 08:05), Session Goal: Fix job creation redirect, photo persistence, and submit errors
+  - What changed:
+    - Added signed direct-to-Storage job photo uploads and server-side record endpoints to avoid Vercel upload limits
+    - Updated job create/edit photo upload flow to use signed uploads and offline queue fallback
+    - Hardened job detail and estimate routes against job_files fetch errors
+    - Surface estimate submit error messages in the UI
+    - Noted build process auto-modifies public/sw.js; revert it before commits
+  - Decisions made:
+    - Use signed Storage uploads + job_files record endpoint for robust online/offline photo persistence
+  - Open questions / risks:
+    - Verify production Submit flow returns ai_ready with OPENAI_API_KEY set
+  - Next actions:
+    - [ ] Re-test job creation redirect and photo persistence on Vercel
+    - [ ] Re-test Submit → estimate flow and confirm status update

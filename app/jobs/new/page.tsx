@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { jobSchema } from '@/lib/validations';
 import { createJob, addJobDraft, getJobDraft, deleteJobDraft, createTemplate } from '@/lib/db/idb';
 import { addToSyncQueue } from '@/lib/db/sync';
-import { addToUploadQueue } from '@/lib/db/upload';
+import { addToUploadQueue, uploadJobPhoto } from '@/lib/db/upload';
 import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
 import { debounce } from '@/lib/utils';
 import { MoreIcon, OfflineIcon } from '@/components/icons';
@@ -121,15 +121,13 @@ export default function NewJobPage() {
 
     await Promise.all(
       photosToUpload.map(async (photo) => {
-        const formData = new FormData();
-        formData.append('file', photo);
-        formData.append('jobId', jobId);
-        formData.append('jobItemId', 'general');
-
         try {
-          await fetch('/api/uploads', {
-            method: 'POST',
-            body: formData,
+          await uploadJobPhoto({
+            jobId,
+            jobItemId: 'general',
+            file: photo,
+            filename: photo.name,
+            mimeType: photo.type,
           });
         } catch (error) {
           console.error('Photo upload failed, adding to queue:', error);
