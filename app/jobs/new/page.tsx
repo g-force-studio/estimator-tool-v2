@@ -276,8 +276,12 @@ export default function NewJobPage() {
         if (!response.ok) throw new Error('Failed to create job');
 
         const result = await response.json();
-        const createdJobId = result.id;
+        const createdJobId = result.id as string | undefined;
+        if (!createdJobId) {
+          throw new Error('Job creation returned no id');
+        }
 
+        await createJob(result);
         const photosToUpload = [...photos];
         void uploadPhotos(createdJobId, photosToUpload);
 
@@ -527,12 +531,14 @@ export default function NewJobPage() {
             <label htmlFor="due_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Due Date
             </label>
-            <input
-              id="due_date"
-              type="date"
-              {...register('due_date')}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            />
+            <div className="overflow-hidden rounded-lg">
+              <input
+                id="due_date"
+                type="date"
+                {...register('due_date')}
+                className="w-full max-w-full min-w-0 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white appearance-none"
+              />
+            </div>
             {errors.due_date && (
               <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.due_date.message}</p>
             )}

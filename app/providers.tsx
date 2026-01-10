@@ -5,6 +5,7 @@ import { processSyncQueue } from '@/lib/db/sync';
 import { processUploadQueue } from '@/lib/db/upload';
 
 const THEME_STORAGE_KEY = 'relaykit-theme';
+const THEME_CHANGE_EVENT = 'relaykit-theme-change';
 
 type ThemePreference = 'light' | 'dark' | 'system';
 
@@ -46,9 +47,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
           applyTheme(getStoredTheme());
         }
       };
+      const handleThemeChange = (event: Event) => {
+        const detail = (event as CustomEvent<ThemePreference>).detail;
+        if (detail === 'light' || detail === 'dark' || detail === 'system') {
+          applyTheme(detail);
+        } else {
+          applyTheme(getStoredTheme());
+        }
+      };
 
       media.addEventListener('change', handleMediaChange);
       window.addEventListener('storage', handleStorage);
+      window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
 
       processSyncQueue();
       processUploadQueue();
@@ -62,6 +72,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         clearInterval(interval);
         media.removeEventListener('change', handleMediaChange);
         window.removeEventListener('storage', handleStorage);
+        window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
       };
     }
   }, []);

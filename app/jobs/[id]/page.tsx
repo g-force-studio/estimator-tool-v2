@@ -103,6 +103,7 @@ export default function JobDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -178,6 +179,7 @@ export default function JobDetailPage() {
   useEffect(() => {
     const loadJob = async () => {
       setIsLoading(true);
+      setLoadError(null);
       try {
         const cachedJob = toJobFromCache(await getJob(jobId));
         if (cachedJob) {
@@ -192,10 +194,16 @@ export default function JobDetailPage() {
             setJob(data);
             await updateJob({ ...data, id: jobId });
             applyJobToForm(data);
+          } else {
+            const message = response.status === 404
+              ? 'Job not found.'
+              : 'Unable to load the job. Please try again.';
+            setLoadError(message);
           }
         }
       } catch (error) {
         console.error('Error loading job:', error);
+        setLoadError('Unable to load the job. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -556,7 +564,9 @@ export default function JobDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 dark:text-gray-400 mb-4">Job not found</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            {loadError || 'Job not found'}
+          </p>
           <button
             onClick={() => router.push('/')}
             className="text-blue-600 dark:text-blue-400 hover:underline"
@@ -819,12 +829,14 @@ export default function JobDetailPage() {
               <label htmlFor="due_date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Due Date
               </label>
-              <input
-                id="due_date"
-                type="date"
-                {...register('due_date')}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-              />
+              <div className="overflow-hidden rounded-lg">
+                <input
+                  id="due_date"
+                  type="date"
+                  {...register('due_date')}
+                  className="w-full max-w-full min-w-0 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white appearance-none"
+                />
+              </div>
             </div>
 
             <div>

@@ -10,6 +10,7 @@ type Tab = 'workspace' | 'members' | 'invites';
 type ThemePreference = 'light' | 'dark' | 'system';
 
 const THEME_STORAGE_KEY = 'relaykit-theme';
+const THEME_CHANGE_EVENT = 'relaykit-theme-change';
 
 const resolveTheme = (preference: ThemePreference) => {
   if (preference === 'system') {
@@ -98,6 +99,7 @@ export default function SettingsPage() {
     setThemePreference(next);
     window.localStorage.setItem(THEME_STORAGE_KEY, next);
     applyTheme(next);
+    window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: next }));
   };
 
   const loadData = useCallback(async () => {
