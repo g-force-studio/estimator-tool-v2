@@ -283,7 +283,9 @@ export default function NewJobPage() {
 
         await createJob(result);
         const photosToUpload = [...photos];
-        void uploadPhotos(createdJobId, photosToUpload);
+        if (photosToUpload.length > 0) {
+          await uploadPhotos(createdJobId, photosToUpload);
+        }
 
         await deleteJobDraft('new');
         const verifyResponse = await fetch(`/api/jobs/${createdJobId}`);

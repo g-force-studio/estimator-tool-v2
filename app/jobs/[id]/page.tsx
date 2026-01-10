@@ -187,17 +187,24 @@ export default function JobDetailPage() {
           applyJobToForm(cachedJob);
         }
 
-        if (isOnline) {
+        try {
           const response = await fetch(`/api/jobs/${jobId}`);
           if (response.ok) {
             const data = await response.json();
             setJob(data);
             await updateJob({ ...data, id: jobId });
             applyJobToForm(data);
-          } else {
+          } else if (!cachedJob) {
             const message = response.status === 404
               ? 'Job not found.'
               : 'Unable to load the job. Please try again.';
+            setLoadError(message);
+          }
+        } catch (fetchError) {
+          if (!cachedJob) {
+            const message = isOnline
+              ? 'Unable to load the job. Please try again.'
+              : 'You appear to be offline. Please reconnect and try again.';
             setLoadError(message);
           }
         }
