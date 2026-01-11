@@ -1,22 +1,23 @@
 Current focus:
-- Validate iOS job create flow, photo persistence, and date input sizing after recent fixes.
+- Resolve Vercel runtime env var availability and unblock job detail/save, photo uploads, and submit flow.
 
 What's working:
-- Theme toggle uses a custom event bridge and updates reliably on iOS.
-- Middleware guard prevents missing env crashes on Vercel.
-- Local build passes; Supabase env issues resolved in Vercel.
+- Signed upload flow and job_files recording are implemented in code.
+- Auth callback now persists session cookies (magic link should stick).
+- Diagnostics in /api/jobs/:id report missing Supabase env vars at runtime.
 
 What's broken:
-- Need confirmation that job creation on iPhone no longer lands on “Job not found”.
-- Need confirmation that photo uploads persist after save on iPhone.
-- Date input width fix needs re-verification on iOS.
+- Production/preview runtime reports "supabaseKey is required"; env vars appear missing at runtime.
+- Old /api/uploads endpoint may still be hit if cached bundles or non-updated paths are used.
 
 Latest files touched:
-- app/providers.tsx
-- app/settings/page.tsx
+- app/api/jobs/[id]/route.ts
+- app/api/uploads/signed/route.ts
+- app/api/uploads/record/route.ts
+- app/auth/callback/route.ts
 - app/jobs/new/page.tsx
 - app/jobs/[id]/page.tsx
-- app/globals.css
+- lib/db/upload.ts
 - NOTES.md
 - code_state.txt
 
@@ -24,9 +25,9 @@ Commands to run locally:
 - npm run build
 
 Last successful end-to-end test:
-- Vercel deploy succeeds with Supabase env vars set.
+- None since env var/runtime failures; needs verification after redeploy.
 
 Next 3 concrete steps:
-1) Re-test iOS job create flow and confirm detail page loads.
-2) Confirm photo uploads persist after job save on iOS.
-3) Verify date input width is fixed on iPhone.
+1) Redeploy and hit /api/jobs/:id to confirm env diagnostics show no missing vars.
+2) Re-test job creation + photo persistence (ensure /api/uploads is not called).
+3) Re-test Submit → estimate flow after OPENAI_API_KEY is configured.

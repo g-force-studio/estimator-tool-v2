@@ -262,3 +262,16 @@ Use this file to capture decisions, changes, and open questions after each worki
   - Next actions:
     - [ ] Re-test job creation redirect and photo persistence on Vercel
     - [ ] Re-test Submit → estimate flow and confirm status update
+- Date/Time (2026-01-11 09:05), Session Goal: Stabilize uploads, auth callback, and env diagnostics
+  - What changed:
+    - Added signed Storage upload flow + record endpoints for job photos (avoids Vercel payload limits)
+    - Added env diagnostics response for job detail fetch when Supabase vars are missing
+    - Fixed auth callback to persist session cookies
+    - Reverted public/sw.js; build touches it and should be reverted before commits
+  - Decisions made:
+    - Use direct signed uploads to Storage for job photos
+  - Open questions / risks:
+    - Vercel environment variables still intermittently missing at runtime (see diagnostics)
+  - Next actions:
+    - [ ] Verify env diagnostics response for /api/jobs/:id after redeploy
+    - [ ] Re-test job create + photo persistence + submit flow once env vars persist
