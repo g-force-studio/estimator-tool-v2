@@ -7,6 +7,19 @@ import { z } from 'zod';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
+    const missingEnv = [
+      !process.env.NEXT_PUBLIC_SUPABASE_URL ? 'NEXT_PUBLIC_SUPABASE_URL' : null,
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY' : null,
+      !process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SUPABASE_SERVICE_ROLE_KEY' : null,
+    ].filter((value): value is string => value !== null);
+
+    if (missingEnv.length > 0) {
+      return NextResponse.json(
+        { error: 'Missing Supabase env vars', missing: missingEnv },
+        { status: 500 }
+      );
+    }
+
     const supabase = await createClient();
     const {
       data: { user },
