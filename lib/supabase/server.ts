@@ -4,6 +4,14 @@ import { Database } from './database.types';
 
 export function createServerClient() {
   const cookieStore = cookies();
+  const missingEnv = [
+    !process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ? 'NEXT_PUBLIC_SUPABASE_URL' : null,
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY' : null,
+  ].filter((value): value is string => value !== null);
+
+  if (missingEnv.length > 0) {
+    throw new Error(`Missing Supabase env vars: ${missingEnv.join(', ')}`);
+  }
 
   return createSupabaseServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
