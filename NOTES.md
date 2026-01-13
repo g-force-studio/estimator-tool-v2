@@ -275,3 +275,18 @@ Use this file to capture decisions, changes, and open questions after each worki
   - Next actions:
     - [ ] Verify env diagnostics response for /api/jobs/:id after redeploy
     - [ ] Re-test job create + photo persistence + submit flow once env vars persist
+
+- Date/Time (2026-01-13 08:20), Session Goal: Diagnose Vercel env issues, unblock uploads, and add auth bypass for debugging
+  - What changed:
+    - Added env guards for Supabase service and server clients to surface missing/blank keys
+    - Diagnosed Vercel deployment alias caching; confirmed current deploy works for /api/jobs/:id
+    - Added temporary middleware flag to bypass auth when DISABLE_AUTH=true
+  - Decisions made:
+    - Use DISABLE_AUTH env flag to bypass auth during debugging only
+  - Open questions / risks:
+    - Supabase Storage signed upload failing with "JWS Protected Header is invalid" likely due to invalid service role JWT
+    - Email auth disabled blocks access unless bypass flag enabled; must re-enable before production
+  - Next actions:
+    - [ ] Set DISABLE_AUTH=true in Vercel for debugging access; redeploy
+    - [ ] Verify SUPABASE_SERVICE_ROLE_KEY is the raw service role JWT (eyJ...) and redeploy
+    - [ ] Re-test photo upload flow (/api/uploads/signed) and job_files insert

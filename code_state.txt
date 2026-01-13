@@ -1,23 +1,19 @@
 Current focus:
-- Resolve Vercel runtime env var availability and unblock job detail/save, photo uploads, and submit flow.
+- Fix photo upload failures (Supabase Storage signed uploads) and stabilize auth access during debugging.
 
 What's working:
-- Signed upload flow and job_files recording are implemented in code.
-- Auth callback now persists session cookies (magic link should stick).
-- Diagnostics in /api/jobs/:id report missing Supabase env vars at runtime.
+- /api/jobs/:id returns data for real job IDs on latest deployment.
+- Env guards added for Supabase server/service clients to surface missing/blank keys.
+- Auth bypass flag available via DISABLE_AUTH=true in middleware.
 
 What's broken:
-- Production/preview runtime reports "supabaseKey is required"; env vars appear missing at runtime.
-- Old /api/uploads endpoint may still be hit if cached bundles or non-updated paths are used.
+- Photo uploads fail via /api/uploads/signed with "JWS Protected Header is invalid".
+- Email login disabled blocks access unless auth bypass is enabled.
 
 Latest files touched:
-- app/api/jobs/[id]/route.ts
-- app/api/uploads/signed/route.ts
-- app/api/uploads/record/route.ts
-- app/auth/callback/route.ts
-- app/jobs/new/page.tsx
-- app/jobs/[id]/page.tsx
-- lib/db/upload.ts
+- lib/supabase/service.ts
+- lib/supabase/server.ts
+- middleware.ts
 - NOTES.md
 - code_state.txt
 
@@ -25,9 +21,9 @@ Commands to run locally:
 - npm run build
 
 Last successful end-to-end test:
-- None since env var/runtime failures; needs verification after redeploy.
+- /api/jobs/:id with real job ID (no upload).
 
 Next 3 concrete steps:
-1) Redeploy and hit /api/jobs/:id to confirm env diagnostics show no missing vars.
-2) Re-test job creation + photo persistence (ensure /api/uploads is not called).
-3) Re-test Submit → estimate flow after OPENAI_API_KEY is configured.
+1) Set DISABLE_AUTH=true in Vercel env vars and redeploy for debugging access.
+2) Ensure SUPABASE_SERVICE_ROLE_KEY is the raw service role JWT (eyJ...) from Supabase API settings; redeploy.
+3) Re-test /api/uploads/signed and job photo upload flow to confirm storage + job_files insert.
