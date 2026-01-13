@@ -48,6 +48,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
     }
 
+    const requestUrl = new URL(request.url);
+    if (requestUrl.searchParams.get('debug') === '1') {
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+      const keyPrefix = serviceKey.slice(0, 8);
+      const dotCount = serviceKey.split('.').length - 1;
+      const supabaseHost = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/^https?:\/\//, '').split('/')[0] || '';
+
+      return NextResponse.json({
+        debug: true,
+        supabase_url_host: supabaseHost,
+        service_key_prefix: keyPrefix,
+        service_key_length: serviceKey.length,
+        service_key_dot_count: dotCount,
+      });
+    }
+
     const ext = getFileExtension(body.filename, body.mimeType);
     const fileName = ext ? `${nanoid()}.${ext}` : nanoid();
     const filePath = `${member.workspace_id}/${jobId}/${jobItemId}/${fileName}`;
