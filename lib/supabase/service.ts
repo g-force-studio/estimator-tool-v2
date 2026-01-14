@@ -2,6 +2,11 @@ import { createClient } from '@supabase/supabase-js';
 import { Database } from './database.types';
 
 
+
+
+
+export function createServiceClient() {
+
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? '';
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? '';
 
@@ -9,14 +14,13 @@ console.log('[service] url host:', url.replace(/^https?:\/\//,'').split('/')[0])
 console.log('[service] key prefix:', key.slice(0, 8));
 console.log('[service] key len:', key.length);
 console.log('[service] key dot count:', key.split('.').length - 1);
+  
+  // const missingEnv = [
+  //   !process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ? 'NEXT_PUBLIC_SUPABASE_URL' : null,
+  //   !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ? 'SUPABASE_SERVICE_ROLE_KEY' : null,
 
 
-
-export function createServiceClient() {
-  const missingEnv = [
-    !process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ? 'NEXT_PUBLIC_SUPABASE_URL' : null,
-    !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ? 'SUPABASE_SERVICE_ROLE_KEY' : null,
-  ].filter((value): value is string => value !== null);
+  // ].filter((value): value is string => value !== null);
 
   if (missingEnv.length > 0) {
     throw new Error(`Missing Supabase env vars: ${missingEnv.join(', ')}`);
