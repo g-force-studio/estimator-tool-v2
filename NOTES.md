@@ -290,3 +290,19 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Set DISABLE_AUTH=true in Vercel for debugging access; redeploy
     - [ ] Verify SUPABASE_SERVICE_ROLE_KEY is the raw service role JWT (eyJ...) and redeploy
     - [ ] Re-test photo upload flow (/api/uploads/signed) and job_files insert
+- Date/Time (2026-01-16 04:47), Session Goal: Restore auth flow reliability and reduce local build noise
+  - What changed:
+    - Removed DISABLE_AUTH bypass from middleware
+    - Added signed upload debug response (key prefix/length/dot count)
+    - Replaced /auth/callback server route with client page and wrapped search params in Suspense
+    - Added DISABLE_PWA flag support to suppress PWA generation and set DISABLE_PWA=true in .env.local
+    - Added local ignore for public/sw.js via .git/info/exclude; reverted sw.js after builds
+  - Decisions made:
+    - Use client-side auth callback to let Supabase detect session from magic link
+    - Use DISABLE_PWA env flag for local builds to avoid sw.js churn
+  - Open questions / risks:
+    - Signed upload still failing with JWS Protected Header invalid; confirm Vercel env key/project match
+    - Service role key was shared in chat; consider rotating when feasible
+  - Next actions:
+    - [ ] Redeploy and verify /api/uploads/signed?debug=1 returns expected key shape
+    - [ ] Re-test magic link flow end-to-end

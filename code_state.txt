@@ -1,29 +1,32 @@
 Current focus:
-- Fix photo upload failures (Supabase Storage signed uploads) and stabilize auth access during debugging.
+- Resolve Supabase Storage signed upload failures (JWS Protected Header invalid) and verify env keys.
+- Confirm magic-link login flow works with client-side auth callback.
 
 What's working:
-- /api/jobs/:id returns data for real job IDs on latest deployment.
-- Env guards added for Supabase server/service clients to surface missing/blank keys.
-- Auth bypass flag available via DISABLE_AUTH=true in middleware.
+- Auth bypass flag removed; login required again.
+- /auth/callback handled client-side with Suspense, allowing Supabase session detection in browser.
+- Signed upload debug response available at /api/uploads/signed?debug=1 to validate key shape.
+- Local builds can suppress PWA generation using DISABLE_PWA=true.
 
 What's broken:
-- Photo uploads fail via /api/uploads/signed with "JWS Protected Header is invalid".
-- Email login disabled blocks access unless auth bypass is enabled.
+- /api/uploads/signed still returns JWS Protected Header invalid in Vercel logs.
 
 Latest files touched:
-- lib/supabase/service.ts
-- lib/supabase/server.ts
 - middleware.ts
+- app/api/uploads/signed/route.ts
+- app/auth/callback/page.tsx
+- next.config.js
+- .env.local (local only)
 - NOTES.md
 - code_state.txt
 
 Commands to run locally:
-- npm run build
+- DISABLE_PWA=true npm run build
 
 Last successful end-to-end test:
-- /api/jobs/:id with real job ID (no upload).
+- None since auth callback change; needs re-test.
 
 Next 3 concrete steps:
-1) Set DISABLE_AUTH=true in Vercel env vars and redeploy for debugging access.
-2) Ensure SUPABASE_SERVICE_ROLE_KEY is the raw service role JWT (eyJ...) from Supabase API settings; redeploy.
-3) Re-test /api/uploads/signed and job photo upload flow to confirm storage + job_files insert.
+1) Redeploy and call /api/uploads/signed?debug=1 to confirm key prefix/dot count and project host.
+2) Re-test magic link flow end-to-end (no extra login prompt).
+3) Re-test photo upload flow after verifying service role key.
