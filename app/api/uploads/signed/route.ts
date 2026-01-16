@@ -19,6 +19,41 @@ function getFileExtension(filename?: string, mimeType?: string) {
   return '';
 }
 
+const getKeyStats = (key?: string) => ({
+  prefix: key?.slice(0, 8) ?? null,
+  len: key?.length ?? null,
+  dotCount: key ? key.split(".").length - 1 : null,
+  hasNewlines: key ? /[\r\n]/.test(key) : null,
+  hasQuotes: key ? /^['"]|['"]$/.test(key) : null,
+});
+
+export async function POST(req: Request) {
+  const urlObj = new URL(req.url);
+  const debug = urlObj.searchParams.get("debug") === "1";
+
+  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (debug) {
+    return Response.json({
+      servedBy: {
+        VERCEL_ENV: process.env.VERCEL_ENV ?? null,
+        VERCEL_URL: process.env.VERCEL_URL ?? null,
+        VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL ?? null,
+        VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+        VERCEL_DEPLOYMENT_ID: process.env.VERCEL_DEPLOYMENT_ID ?? null,
+      },
+      supabase: {
+        urlHost: sbUrl ? sbUrl.replace(/^https?:\/\//, "").split("/")[0] : null,
+        serviceRole: getKeyStats(serviceKey),
+      },
+    });
+  }
+
+  // ... existing code continues below ...
+}
+
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
