@@ -6,10 +6,10 @@ export function createServiceClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
   // TEMP DEBUG LOGS (remove after fixed)
-  console.log('[service] url host:', url?.replace(/^https?:\/\//, '').split('/')[0]);
-  console.log('[service] key prefix:', key?.slice(0, 8));
-  console.log('[service] key len:', key?.length);
-  console.log('[service] dot count:', (key ?? '').split('.').length - 1);
+  console.error('[service] url host:', url?.replace(/^https?:\/\//, '').split('/')[0]);
+  console.error('[service] key prefix:', key?.slice(0, 8));
+  console.error('[service] key len:', key?.length);
+  console.error('[service] dot count:', (key ?? '').split('.').length - 1);
 
   const missingEnv = [
     !url ? 'NEXT_PUBLIC_SUPABASE_URL' : null,
