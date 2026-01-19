@@ -427,11 +427,11 @@ npm run format
 
 ## Deployment
 
-### Vercel (Recommended)
+### Netlify (Recommended)
 
 1. Push your code to GitHub
-2. Import the project in Vercel
-3. Add environment variables in Vercel dashboard
+2. Import the project in Netlify
+3. Add environment variables in Netlify dashboard
 4. Deploy
 
 ### Other Platforms

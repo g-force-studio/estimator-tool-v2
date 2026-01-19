@@ -68,11 +68,14 @@ export async function POST(request: Request) {
       return NextResponse.json({
         debug: true,
         servedBy: {
-          VERCEL_ENV: process.env.VERCEL_ENV ?? null,
-          VERCEL_URL: process.env.VERCEL_URL ?? null,
-          VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL ?? null,
-          VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
-          VERCEL_DEPLOYMENT_ID: process.env.VERCEL_DEPLOYMENT_ID ?? null,
+          NETLIFY: process.env.NETLIFY ?? null,
+          CONTEXT: process.env.CONTEXT ?? null,
+          URL: process.env.URL ?? null,
+          DEPLOY_URL: process.env.DEPLOY_URL ?? null,
+          SITE_NAME: process.env.SITE_NAME ?? null,
+          COMMIT_REF: process.env.COMMIT_REF ?? null,
+          BRANCH: process.env.BRANCH ?? null,
+          DEPLOY_ID: process.env.DEPLOY_ID ?? null,
         },
         supabase: {
           urlHost: sbUrl ? sbUrl.replace(/^https?:\/\//, '').split('/')[0] : null,
