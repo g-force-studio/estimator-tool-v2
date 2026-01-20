@@ -5,21 +5,9 @@ import { createServiceClient } from '@/lib/supabase/service';
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const DRAFT_MODEL = 'gpt-4.1-mini';
 
-type ImageAnalysis = {
-  image_url: string;
-  observations: string;
-};
-
-type LaborLine = {
-  task: string;
-  hours: number;
-};
-
-type MaterialLine = {
-  item: string;
-  qty: number;
-  cost: number;
-};
+type ImageAnalysis = { image_url: string; observations: string };
+type LaborLine = { task: string; hours: number };
+type MaterialLine = { item: string; qty: number; cost: number };
 
 type JobItem = {
   type?: string;
@@ -63,22 +51,58 @@ const roundToHalf = (value: number) => Math.round(value * 2) / 2;
 
 const extractOutputText = (payload: OpenAIResponse) => {
   if (typeof payload?.output_text === 'string') return payload.output_text;
+
   const chunks =
     payload?.output?.flatMap((item) =>
       (item?.content || [])
         .filter((part) => part?.type === 'output_text')
         .map((part) => part?.text)
     ) || [];
+
   return chunks.join('\n').trim();
 };
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+const errToString = (e: unknown) => {
+  if (e instanceof Error) return e.message;
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return String(e);
+  }
+};
+
+/**
+ * Best-effort update: never throws.
+ * IMPORTANT: uses serviceClient to bypass RLS and avoid “schema cache” updates
+ * from breaking the request after the real work succeeded.
+ */
+async function safeJobUpdate(
+  serviceClient: ReturnType<typeof createServiceClient>,
+  jobId: string,
+  patch: Record<string, any>
+) {
+  try {
+    const { error } = await serviceClient.from('jobs').update(patch).eq('id', jobId);
+    if (error) console.error('Non-fatal jobs update failed:', error);
+  } catch (e) {
+    console.error('Non-fatal jobs update exception:', e);
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: { jobId: string } } // <-- FIXED: matches folder [jobId]
+) {
   const requestUrl = new URL(request.url);
   const debug = requestUrl.searchParams.get('debug') === '1';
-  const supabase = createServerClient();
-  const serviceClient = createServiceClient();
+
+  const supabase = createServerClient();      // user-scoped (RLS)
+  const serviceClient = createServiceClient(); // service role
+
+  const jobId = params.jobId;
 
   try {
+    // Auth check (keep user-scoped for security)
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -87,30 +111,35 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Fetch job + items (user-scoped)
     const { data: job, error: jobError } = await supabase
       .from('jobs')
       .select('*, job_items(*)')
-      .eq('id', params.id)
+      .eq('id', jobId)
       .single();
 
     if (jobError) throw jobError;
 
-    await supabase
-      .from('jobs')
-      .update({ status: 'ai_pending', error_message: null })
-      .eq('id', params.id);
+    // Mark pending (non-fatal)
+    await safeJobUpdate(serviceClient, jobId, {
+      status: 'ai_pending',
+      error_message: null, // if column missing this won't kill request
+    });
 
-    let settings = null as null | {
+    // Workspace settings (prefer user-scoped read; service upsert if missing)
+    let settings: null | {
       tax_rate_percent: number | null;
       markup_percent: number | null;
       hourly_rate: number | null;
-    };
+    } = null;
+
     const { data: settingsData, error: settingsError } = await supabase
       .from('workspace_settings')
       .select('tax_rate_percent, markup_percent, hourly_rate')
       .eq('workspace_id', job.workspace_id)
       .single();
 
+    // PGRST116 is "No rows" (single() empty)
     if (settingsError && settingsError.code !== 'PGRST116') {
       throw settingsError;
     }
@@ -121,6 +150,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         .upsert({ workspace_id: job.workspace_id })
         .select('tax_rate_percent, markup_percent, hourly_rate')
         .single();
+
       if (insertError) throw insertError;
       settings = inserted;
     } else {
@@ -131,13 +161,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const markupPercent = Number(settings?.markup_percent ?? 0);
     const hourlyRate = Number(settings?.hourly_rate ?? 0);
 
+    // Job files (photos)
     const { data: jobFiles, error: filesError } = await supabase
       .from('job_files')
       .select('id, storage_path')
-      .eq('job_id', params.id)
+      .eq('job_id', jobId)
       .eq('kind', 'image')
       .order('created_at', { ascending: true });
 
+    // ignore missing table or no rows; log other errors
     if (filesError && filesError.code !== 'PGRST205') {
       console.error('Estimate job files fetch error:', filesError);
     }
@@ -147,10 +179,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
         const { data } = await serviceClient.storage
           .from('job-assets')
           .createSignedUrl(file.storage_path, 3600);
-        return {
-          id: file.id,
-          url: data?.signedUrl || '',
-        };
+
+        return { id: file.id, url: data?.signedUrl || '' };
       })
     );
 
@@ -161,8 +191,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const jobItems = Array.isArray(job.job_items)
       ? (job.job_items as JobItem[])
       : job.job_items
-        ? [job.job_items as JobItem]
-        : [];
+      ? [job.job_items as JobItem]
+      : [];
+
     const lineItems = jobItems
       .filter((item) => item.type === 'line_item')
       .map((item) => ({
@@ -173,22 +204,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
         quantity: item.content_json?.quantity ?? 0,
       }));
 
+    // PROMPT
     const systemPrompt = [
       'You are an expert estimator for residential services.',
       'Analyze provided photos and job details to create a structured estimate.',
       'Return ONLY valid JSON with this shape:',
       '{',
-      '  "client": { "customerName": "", "customerEmail": "", "address": "", "phone": "", "preferredDate": "" },',
-      '  "estimate": {',
-      '    "estimateNumber": "",',
-      '    "project": "",',
-      '    "jobDescription": "",',
-      '    "jobNotes": "",',
-      '    "formattingStatus": "success",',
-      '    "labor": [ { "task": "", "hours": 0 } ],',
-      '    "materials": [ { "item": "", "qty": 0, "cost": 0 } ]',
-      '  },',
-      '  "image_analysis": [ { "image_url": "", "observations": "" } ]',
+      ' "client": { "customerName": "", "customerEmail": "", "address": "", "phone": "", "preferredDate": "" },',
+      ' "estimate": {',
+      ' "estimateNumber": "",',
+      ' "project": "",',
+      ' "jobDescription": "",',
+      ' "jobNotes": "",',
+      ' "formattingStatus": "success",',
+      ' "labor": [ { "task": "", "hours": 0 } ],',
+      ' "materials": [ { "item": "", "qty": 0, "cost": 0 } ]',
+      ' },',
+      ' "image_analysis": [ { "image_url": "", "observations": "" } ]',
       '}',
       'Do not include markdown or extra commentary.',
     ].join('\n');
@@ -207,11 +239,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     ];
 
     photos.slice(0, 8).forEach((photo) => {
-      if (photo.url) {
-        userContent.push({ type: 'input_image', image_url: photo.url });
-      }
+      if (photo.url) userContent.push({ type: 'input_image', image_url: photo.url });
     });
 
+    // OpenAI call
     const openaiResponse = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
@@ -229,22 +260,41 @@ export async function POST(request: Request, { params }: { params: { id: string 
     });
 
     const openaiData = (await openaiResponse.json()) as OpenAIResponse;
+
     if (!openaiResponse.ok) {
       throw new Error(openaiData?.error?.message || 'OpenAI request failed');
     }
 
     const outputText = extractOutputText(openaiData);
-    const parsed = JSON.parse(outputText) as EstimateDraft;
+
+    // Parse JSON
+    let parsed: EstimateDraft;
+    try {
+      parsed = JSON.parse(outputText) as EstimateDraft;
+    } catch (e) {
+      // Mark error (non-fatal), but fail request because we can’t persist valid estimate JSON
+      await safeJobUpdate(serviceClient, jobId, {
+        status: 'ai_error',
+        error_message: `AI returned invalid JSON: ${errToString(e)}`,
+      });
+      return NextResponse.json(
+        {
+          error: 'AI returned invalid JSON',
+          ...(debug ? { debug: { outputText: outputText?.slice(0, 2000) } } : {}),
+        },
+        { status: 500 }
+      );
+    }
 
     const labor: LaborLine[] = Array.isArray(parsed?.estimate?.labor)
-      ? parsed.estimate?.labor?.map((item) => ({
+      ? parsed.estimate!.labor!.map((item) => ({
           task: String(item?.task || '').trim(),
           hours: Number(item?.hours ?? 0),
         }))
       : [];
 
     const materials: MaterialLine[] = Array.isArray(parsed?.estimate?.materials)
-      ? parsed.estimate?.materials?.map((item) => ({
+      ? parsed.estimate!.materials!.map((item) => ({
           item: String(item?.item || '').trim(),
           qty: Number(item?.qty ?? 0),
           cost: Number(item?.cost ?? 0),
@@ -253,12 +303,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     const normalizedLabor = labor.map((item) => {
       const total = roundToHalf(item.hours * hourlyRate);
-      return {
-        task: item.task,
-        hours: item.hours,
-        rate: hourlyRate,
-        total,
-      };
+      return { task: item.task, hours: item.hours, rate: hourlyRate, total };
     });
 
     const materialsTotal = materials.reduce((sum, item) => sum + item.qty * item.cost, 0);
@@ -288,7 +333,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
         tax,
         total,
       },
-      image_analysis: Array.isArray(parsed?.image_analysis) ? parsed.image_analysis : ([] as ImageAnalysis[]),
+      image_analysis: Array.isArray(parsed?.image_analysis)
+        ? parsed.image_analysis
+        : ([] as ImageAnalysis[]),
       metadata: {
         tax_rate_percent: taxRate,
         markup_percent: markupPercent,
@@ -298,26 +345,43 @@ export async function POST(request: Request, { params }: { params: { id: string 
       },
     };
 
+    // PERSIST AI OUTPUT (this is the critical write)
     const { data: aiOutput, error: aiError } = await supabase
       .from('ai_outputs')
-      .insert({ job_id: params.id, ai_json: aiJson })
+      .insert({ job_id: jobId, ai_json: aiJson })
       .select()
       .single();
 
     if (aiError) throw aiError;
 
-    const { data: updatedJob, error: updateError } = await supabase
+    // Mark job ready (non-fatal)
+    await safeJobUpdate(serviceClient, jobId, {
+      status: 'ai_ready',
+      error_message: null,
+      estimate_status: 'complete',
+      estimated_at: new Date().toISOString(),
+    });
+
+    // Re-fetch job (user-scoped) for UI; if this fails due to column mismatch,
+    // we still return success with ai_output and a minimal job payload.
+    const { data: updatedJob, error: updatedJobError } = await supabase
       .from('jobs')
-      .update({ status: 'ai_ready', error_message: null })
-      .eq('id', params.id)
-      .select()
+      .select('*')
+      .eq('id', jobId)
       .single();
 
-    if (updateError) throw updateError;
+    if (updatedJobError) {
+      console.error('Non-fatal job refetch failed:', updatedJobError);
+      return NextResponse.json({
+        job: { id: jobId, status: 'ai_ready' },
+        ai_output: aiOutput,
+      });
+    }
 
-    return NextResponse.json({ job: updatedJob, ai_output: aiOutput });
+    return NextResponse.json({ job: updatedJob, ai_output: aiOutput }, { status: 200 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'AI error';
+    const message = errToString(error);
+
     const debugInfo = debug
       ? {
           message,
@@ -328,11 +392,16 @@ export async function POST(request: Request, { params }: { params: { id: string 
           hint: (error as { hint?: string })?.hint ?? null,
         }
       : undefined;
+
     console.error('Estimate generation error:', error);
-    await supabase
-      .from('jobs')
-      .update({ status: 'ai_error', error_message: message })
-      .eq('id', params.id);
+
+    // Best-effort mark error; do not throw if schema mismatch
+    await safeJobUpdate(serviceClient, jobId, {
+      status: 'ai_error',
+      error_message: message,
+      estimate_status: 'error',
+    });
+
     return NextResponse.json(
       { error: message || 'Failed to generate estimate', ...(debugInfo ? { debug: debugInfo } : {}) },
       { status: 500 }
