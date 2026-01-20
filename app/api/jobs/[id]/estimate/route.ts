@@ -73,6 +73,8 @@ const extractOutputText = (payload: OpenAIResponse) => {
 };
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const requestUrl = new URL(request.url);
+  const debug = requestUrl.searchParams.get('debug') === '1';
   const supabase = createServerClient();
   const serviceClient = createServiceClient();
 
@@ -316,13 +318,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ job: updatedJob, ai_output: aiOutput });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'AI error';
+    const debugInfo = debug
+      ? {
+          message,
+          name: error instanceof Error ? error.name : null,
+          stack: error instanceof Error ? error.stack?.split('\n').slice(0, 6).join('\n') : null,
+          code: (error as { code?: string })?.code ?? null,
+          details: (error as { details?: string })?.details ?? null,
+          hint: (error as { hint?: string })?.hint ?? null,
+        }
+      : undefined;
     console.error('Estimate generation error:', error);
     await supabase
       .from('jobs')
       .update({ status: 'ai_error', error_message: message })
       .eq('id', params.id);
     return NextResponse.json(
-      { error: message || 'Failed to generate estimate' },
+      { error: message || 'Failed to generate estimate', ...(debugInfo ? { debug: debugInfo } : {}) },
       { status: 500 }
     );
   }
