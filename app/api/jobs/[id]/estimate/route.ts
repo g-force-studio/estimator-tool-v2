@@ -90,7 +90,7 @@ async function safeJobUpdate(
 
 export async function POST(
   request: Request,
-  { params }: { params: { jobId: string } } 
+  { params }: { params: { id: string } }
 ) {
   const requestUrl = new URL(request.url);
   const debug = requestUrl.searchParams.get('debug') === '1';
@@ -98,7 +98,7 @@ export async function POST(
   const supabase = createServerClient();      // user-scoped (RLS)
   const serviceClient = createServiceClient(); // service role
 
-  const jobId = params.jobId;
+  const jobId = params.id;
 
   try {
     // Auth check (keep user-scoped for security)
