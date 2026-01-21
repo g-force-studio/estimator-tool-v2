@@ -111,6 +111,7 @@ export default function JobDetailPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMountedRef = useRef(true);
+  const [, setAiOutput] = useState<{ id: string; created_at: string; ai_json: unknown; job_id: string } | null>(null);
   const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
     : '';
@@ -176,6 +177,28 @@ export default function JobDetailPage() {
     };
   }, []);
 
+  const refreshJob = useCallback(async (id: string) => {
+    const response = await fetch(`/api/jobs/${id}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (isMountedRef.current) {
+      setJob(data);
+      applyJobToForm(data);
+    }
+    await updateJob({ ...data, id });
+    return data as Job;
+  }, [applyJobToForm]);
+
+  const refreshAiOutput = useCallback(async (id: string) => {
+    const response = await fetch(`/api/jobs/${id}/ai-output`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (isMountedRef.current) {
+      setAiOutput(data.ai_output ?? null);
+    }
+    return data;
+  }, []);
+
   useEffect(() => {
     const loadJob = async () => {
       setIsLoading(true);
@@ -188,17 +211,9 @@ export default function JobDetailPage() {
         }
 
         try {
-          const response = await fetch(`/api/jobs/${jobId}`);
-          if (response.ok) {
-            const data = await response.json();
-            setJob(data);
-            await updateJob({ ...data, id: jobId });
-            applyJobToForm(data);
-          } else if (!cachedJob) {
-            const message = response.status === 404
-              ? 'Job not found.'
-              : 'Unable to load the job. Please try again.';
-            setLoadError(message);
+          const refreshed = await refreshJob(jobId);
+          if (!refreshed && !cachedJob) {
+            setLoadError('Unable to load the job. Please try again.');
           }
         } catch (fetchError) {
           if (!cachedJob) {
@@ -217,7 +232,7 @@ export default function JobDetailPage() {
     };
 
     loadJob();
-  }, [jobId, isOnline, applyJobToForm]);
+  }, [jobId, isOnline, refreshJob]);
 
   useEffect(() => {
     if (job?.job_items) {
@@ -517,17 +532,18 @@ export default function JobDetailPage() {
           method: 'POST',
         });
 
+        const payload = await response.json().catch(() => ({}));
+
+        await Promise.all([refreshJob(jobId), refreshAiOutput(jobId)]);
+
         if (!response.ok) {
-          const data = await response.json().catch(() => null);
-          throw new Error(data?.error || 'Failed to submit job');
+          const existsRes = await fetch(`/api/jobs/${jobId}/ai-output`);
+          const existsJson = await existsRes.json().catch(() => ({ exists: false }));
+          if (!existsJson.exists) {
+            throw new Error(payload?.error || 'Estimate failed');
+          }
         }
 
-        const result = await response.json();
-        const updatedJob = result.job ? { ...job, ...result.job } : job;
-        if (updatedJob) {
-          setJob(updatedJob as Job);
-          await updateJob(updatedJob as Record<string, unknown>);
-        }
         router.push('/');
       } else {
         const updatedJob = {

@@ -71,11 +71,10 @@ const errToString = (e: unknown) => {
   }
 };
 
-/**
- * Best-effort update: never throws.
- * IMPORTANT: uses serviceClient to bypass RLS and avoid “schema cache” updates
- * from breaking the request after the real work succeeded.
- */
+
+ // IMPORTANT: uses serviceClient to bypass RLS and avoid “schema cache” updates
+ // from breaking the request after the real work succeeded.
+ 
 async function safeJobUpdate(
   serviceClient: ReturnType<typeof createServiceClient>,
   jobId: string,
@@ -91,7 +90,7 @@ async function safeJobUpdate(
 
 export async function POST(
   request: Request,
-  { params }: { params: { jobId: string } } // <-- FIXED: matches folder [jobId]
+  { params }: { params: { jobId: string } } 
 ) {
   const requestUrl = new URL(request.url);
   const debug = requestUrl.searchParams.get('debug') === '1';
@@ -123,7 +122,7 @@ export async function POST(
     // Mark pending (non-fatal)
     await safeJobUpdate(serviceClient, jobId, {
       status: 'ai_pending',
-      error_message: null, // if column missing this won't kill request
+      error_message: null, // if column is missing this won't kill request
     });
 
     // Workspace settings (prefer user-scoped read; service upsert if missing)
