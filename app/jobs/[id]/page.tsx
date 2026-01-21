@@ -24,6 +24,13 @@ type LineItem = {
   quantity: number;
 };
 
+type AiOutput = {
+  id: string;
+  created_at: string;
+  ai_json: unknown;
+  job_id: string;
+};
+
 interface Job extends JobFormData {
   id: string;
   workspace_id: string;
@@ -111,7 +118,7 @@ export default function JobDetailPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMountedRef = useRef(true);
-  const [, setAiOutput] = useState<{ id: string; created_at: string; ai_json: unknown; job_id: string } | null>(null);
+  const [aiOutput, setAiOutput] = useState<AiOutput | null>(null);
   const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
     : '';
@@ -211,7 +218,10 @@ export default function JobDetailPage() {
         }
 
         try {
-          const refreshed = await refreshJob(jobId);
+          const [refreshed] = await Promise.all([
+            refreshJob(jobId),
+            isOnline ? refreshAiOutput(jobId) : null,
+          ]);
           if (!refreshed && !cachedJob) {
             setLoadError('Unable to load the job. Please try again.');
           }
@@ -232,7 +242,7 @@ export default function JobDetailPage() {
     };
 
     loadJob();
-  }, [jobId, isOnline, refreshJob]);
+  }, [jobId, isOnline, refreshJob, refreshAiOutput]);
 
   useEffect(() => {
     if (job?.job_items) {
@@ -577,6 +587,18 @@ export default function JobDetailPage() {
     job?.status === 'pdf_pending' ||
     job?.status === 'complete';
 
+  const aiEstimate = useMemo(() => {
+    if (!aiOutput || !isObject(aiOutput.ai_json)) return null;
+    const estimate = aiOutput.ai_json.estimate;
+    return isObject(estimate) ? estimate : null;
+  }, [aiOutput]);
+
+  const toNumber = (value: unknown) => {
+    if (typeof value === 'number') return value;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -687,6 +709,87 @@ export default function JobDetailPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {aiEstimate && (
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">AI Estimate</h3>
+                  {aiOutput?.created_at && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {formatDateTime(aiOutput.created_at)}
+                    </span>
+                  )}
+                </div>
+                {typeof aiEstimate.estimateNumber === 'string' && (
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium text-gray-900 dark:text-white">Estimate #</span>{' '}
+                    {aiEstimate.estimateNumber}
+                  </div>
+                )}
+                {typeof aiEstimate.jobDescription === 'string' && aiEstimate.jobDescription.trim() !== '' && (
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    <div className="font-medium text-gray-900 dark:text-white mb-1">Summary</div>
+                    <p className="whitespace-pre-wrap">{aiEstimate.jobDescription}</p>
+                  </div>
+                )}
+                {Array.isArray(aiEstimate.materials) && aiEstimate.materials.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">Materials</div>
+                    {aiEstimate.materials.map((item: unknown, index: number) => {
+                      if (!isObject(item)) return null;
+                      const name = typeof item.item === 'string' ? item.item : 'Item';
+                      const qty = toNumber(item.qty);
+                      const cost = toNumber(item.cost);
+                      return (
+                        <div key={`material-${index}`} className="flex items-start justify-between text-sm">
+                          <div className="text-gray-700 dark:text-gray-300">
+                            {name} <span className="text-xs text-gray-500 dark:text-gray-400">× {qty}</span>
+                          </div>
+                          <div className="text-gray-900 dark:text-white">
+                            ${(qty * cost).toFixed(2)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {Array.isArray(aiEstimate.labor) && aiEstimate.labor.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">Labor</div>
+                    {aiEstimate.labor.map((item: unknown, index: number) => {
+                      if (!isObject(item)) return null;
+                      const task = typeof item.task === 'string' ? item.task : 'Labor';
+                      const hours = toNumber(item.hours);
+                      const total = toNumber(item.total);
+                      return (
+                        <div key={`labor-${index}`} className="flex items-start justify-between text-sm">
+                          <div className="text-gray-700 dark:text-gray-300">
+                            {task} <span className="text-xs text-gray-500 dark:text-gray-400">({hours} hr)</span>
+                          </div>
+                          <div className="text-gray-900 dark:text-white">
+                            ${total.toFixed(2)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1 text-sm">
+                  <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                    <span>Subtotal</span>
+                    <span>${toNumber(aiEstimate.subtotal).toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                    <span>Tax</span>
+                    <span>${toNumber(aiEstimate.tax).toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between font-medium text-gray-900 dark:text-white">
+                    <span>Total</span>
+                    <span>${toNumber(aiEstimate.total).toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             )}
