@@ -361,6 +361,33 @@ export async function POST(
       estimated_at: new Date().toISOString(),
     });
 
+    const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+      : null;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (functionsBaseUrl && serviceRoleKey) {
+      try {
+        const pdfResponse = await fetch(`${functionsBaseUrl}/generate-pdf`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${serviceRoleKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ job_id: jobId }),
+        });
+
+        if (!pdfResponse.ok) {
+          const errorText = await pdfResponse.text();
+          console.error('PDF generation failed:', errorText);
+        }
+      } catch (pdfError) {
+        console.error('PDF generation error:', pdfError);
+      }
+    } else {
+      console.warn('PDF generation skipped: missing Supabase URL or service role key.');
+    }
+
     // Re-fetch job (user-scoped) for UI; if this fails due to column mismatch,
     // we still return success with ai_output and a minimal job payload.
     const { data: updatedJob, error: updatedJobError } = await supabase

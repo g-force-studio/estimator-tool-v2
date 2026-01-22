@@ -96,13 +96,49 @@ serve(async (req) => {
   }
 
   const aiJson = aiOutput.ai_json as Record<string, unknown>;
+  const estimate = (aiJson.estimate ?? null) as Record<string, unknown> | null;
+  const client = (aiJson.client ?? null) as Record<string, unknown> | null;
+
   const companyName = (aiJson.company_name as string) || 'RelayKit Estimates';
   const terms = (aiJson.terms as string) || 'Payment due upon receipt.';
-  const items = Array.isArray(aiJson.line_items) ? (aiJson.line_items as LineItem[]) : [];
-  const lineItems = normalizeLineItems(items);
-  const subtotal = lineItems.reduce((sum, item) => sum + (item.total ?? 0), 0);
-  const tax = typeof aiJson.tax === 'number' ? (aiJson.tax as number) : 0;
-  const total = typeof aiJson.total === 'number' ? (aiJson.total as number) : subtotal + tax;
+
+  const legacyItems = Array.isArray(aiJson.line_items) ? (aiJson.line_items as LineItem[]) : [];
+  const materialItems = Array.isArray(estimate?.materials)
+    ? (estimate?.materials as Array<Record<string, unknown>>)
+    : [];
+  const laborItems = Array.isArray(estimate?.labor)
+    ? (estimate?.labor as Array<Record<string, unknown>>)
+    : [];
+
+  const lineItems = normalizeLineItems([
+    ...legacyItems,
+    ...materialItems.map((item) => ({
+      description: String(item.item ?? ''),
+      quantity: Number(item.qty ?? 0),
+      unit_price: Number(item.cost ?? 0),
+      total: Number(item.qty ?? 0) * Number(item.cost ?? 0),
+    })),
+    ...laborItems.map((item) => ({
+      description: String(item.task ?? ''),
+      quantity: Number(item.hours ?? 0),
+      unit_price: Number(item.rate ?? 0),
+      total: Number(item.total ?? Number(item.hours ?? 0) * Number(item.rate ?? 0)),
+    })),
+  ]);
+
+  const subtotal = typeof estimate?.subtotal === 'number'
+    ? (estimate.subtotal as number)
+    : lineItems.reduce((sum, item) => sum + (item.total ?? 0), 0);
+  const tax = typeof estimate?.tax === 'number'
+    ? (estimate.tax as number)
+    : typeof aiJson.tax === 'number'
+      ? (aiJson.tax as number)
+      : 0;
+  const total = typeof estimate?.total === 'number'
+    ? (estimate.total as number)
+    : typeof aiJson.total === 'number'
+      ? (aiJson.total as number)
+      : subtotal + tax;
 
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([612, 792]);
@@ -114,10 +150,12 @@ serve(async (req) => {
   page.drawText(companyName, { x: 48, y, size: 20, font: bold, color: rgb(0.1, 0.1, 0.1) });
 
   y -= 24;
-  page.drawText(`Estimate for ${job.title}`, { x: 48, y, size: 12, font, color: rgb(0.2, 0.2, 0.2) });
+  const projectName = (estimate?.project as string) || job.title;
+  page.drawText(`Estimate for ${projectName}`, { x: 48, y, size: 12, font, color: rgb(0.2, 0.2, 0.2) });
 
   y -= 16;
-  page.drawText(`Client: ${job.client_name ?? 'N/A'}`, { x: 48, y, size: 11, font });
+  const clientName = (client?.customerName as string) || job.client_name || 'N/A';
+  page.drawText(`Client: ${clientName}`, { x: 48, y, size: 11, font });
   page.drawText(`Due Date: ${job.due_date ?? 'N/A'}`, { x: 340, y, size: 11, font });
 
   y -= 16;
