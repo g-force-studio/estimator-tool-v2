@@ -580,12 +580,13 @@ export default function JobDetailPage() {
     }
   };
 
-  const isSubmitDisabled =
-    isSubmittingJob ||
-    job?.status === 'ai_pending' ||
-    job?.status === 'ai_ready' ||
-    job?.status === 'pdf_pending' ||
-    job?.status === 'complete';
+  const canSubmit = !isSubmittingJob && job?.status === 'draft';
+  const canResubmit =
+    !isSubmittingJob &&
+    (job?.status === 'ai_ready' ||
+      job?.status === 'complete' ||
+      job?.status === 'ai_error' ||
+      job?.status === 'pdf_error');
 
   const aiEstimate = useMemo(() => {
     if (!aiOutput || !isObject(aiOutput.ai_json)) return null;
@@ -864,7 +865,7 @@ export default function JobDetailPage() {
               >
                 Home
               </button>
-              {(job.pdf_url || job.status === 'complete') && (
+              {job.status === 'complete' && (
                 <button
                   onClick={handleOpenPdf}
                   className="flex-1 min-w-[120px] px-4 py-3 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 dark:border-blue-500 dark:text-blue-200 dark:hover:bg-blue-900/20"
@@ -878,13 +879,27 @@ export default function JobDetailPage() {
               >
                 Edit
               </button>
-              <button
-                onClick={handleSubmitJob}
-                disabled={isSubmitDisabled}
-                className="flex-1 min-w-[120px] px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Submit
-              </button>
+              {job.status === 'draft' && (
+                <button
+                  onClick={handleSubmitJob}
+                  disabled={!canSubmit}
+                  className="flex-1 min-w-[120px] px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Submit
+                </button>
+              )}
+              {(job.status === 'ai_ready' ||
+                job.status === 'complete' ||
+                job.status === 'ai_error' ||
+                job.status === 'pdf_error') && (
+                <button
+                  onClick={handleSubmitJob}
+                  disabled={!canResubmit}
+                  className="flex-1 min-w-[120px] px-4 py-3 border border-emerald-300 text-emerald-700 rounded-lg hover:bg-emerald-50 dark:border-emerald-500 dark:text-emerald-200 dark:hover:bg-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Re-submit
+                </button>
+              )}
               <button
                 onClick={handleDelete}
                 className="min-w-[120px] px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"

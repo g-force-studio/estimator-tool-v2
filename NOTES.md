@@ -239,6 +239,11 @@ Use this file to capture decisions, changes, and open questions after each worki
 1) Integrate OpenAI estimation workflow end-to-end (request, AI output, PDF, job updates)
 2) Add job estimate summary + PDF link in list/detail UI
 3) Add robust error surfacing for ai_error/pdf_error states
+4) Allow users to edit generated estimates
+5) Show customer name reference when customer already exists in database
+6) Add fields for customer address & contact info
+7) Add a config file for AI prompting
+8) Use pricing database as a reference before AI creates estimates
 
 ## Known Issues
 - Issue: Job status enum mismatch across UI/back end in older data
@@ -325,3 +330,16 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Deploy `generate-pdf` Edge Function and set ESTIMATES_BUCKET envs
     - [ ] Re-test Submit → AI → PDF and confirm job status completes
     - [ ] Add UI for editing/viewing AI line items if needed
+
+- Date/Time (2026-01-21 19:38), Session Goal: Validate PDF generation + capture next UI fixes
+  - What changed:
+    - Confirmed PGRST204 is no longer occurring
+    - Generated a PDF using ESTIMATES_BUCKET successfully
+  - Decisions made:
+    - Show PDF link only when job.status is complete
+    - Add separate Re-submit button after submission
+  - Open questions / risks:
+    - None noted
+  - Next actions:
+    - [ ] Fix Submit/Re-submit button states and add PDF link on job detail
+    - [ ] Add TODOs for estimate editing, customer info, and AI prompt config
