@@ -1,32 +1,38 @@
 Current focus:
-- Resolve Supabase Storage signed upload failures (JWS Protected Header invalid) and verify env keys.
-- Confirm magic-link login flow works with client-side auth callback.
+- Deploy updated generate-pdf Edge Function and confirm PDF generation in production.
+- Verify Submit → AI → PDF flow in Netlify with new ai_outputs and pricing tables.
 
 What's working:
-- Auth bypass flag removed; login required again.
-- /auth/callback handled client-side with Suspense, allowing Supabase session detection in browser.
-- Signed upload debug response available at /api/uploads/signed?debug=1 to validate key shape.
-- Local builds can suppress PWA generation using DISABLE_PWA=true.
+- Netlify deployment with Next.js plugin and updated README guidance.
+- AI estimate route writes ai_outputs and can return debug info for failures.
+- /api/jobs/[id]/ai-output endpoint and client refresh flow for submit.
+- Job detail UI now renders AI estimate details when available.
+- Manual curl test for generate-pdf succeeded.
 
-What's broken:
-- /api/uploads/signed still returns JWS Protected Header invalid in Vercel logs.
+What's broken / pending:
+- PDF generation depends on deploying updated Edge Function to Supabase.
+- Schema cache reload may be required after migrations (PGRST204 seen).
 
 Latest files touched:
-- middleware.ts
-- app/api/uploads/signed/route.ts
-- app/auth/callback/page.tsx
-- next.config.js
-- .env.local (local only)
+- app/api/jobs/[id]/estimate/route.ts
+- app/api/jobs/[id]/ai-output/route.ts
+- app/jobs/[id]/page.tsx
+- supabase/functions/generate-pdf/index.ts
+- supabase/migrations/20260120_add_ai_outputs.sql
+- supabase/migrations/20260120_add_pricing_tables.sql
+- README.md
+- netlify.toml
 - NOTES.md
 - code_state.txt
 
 Commands to run locally:
-- DISABLE_PWA=true npm run build
+- supabase functions deploy generate-pdf
+- supabase secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... ESTIMATES_BUCKET=estimates ESTIMATES_BUCKET_PUBLIC=true
 
 Last successful end-to-end test:
-- None since auth callback change; needs re-test.
+- Curl test against generate-pdf succeeded (manual).
 
 Next 3 concrete steps:
-1) Redeploy and call /api/uploads/signed?debug=1 to confirm key prefix/dot count and project host.
-2) Re-test magic link flow end-to-end (no extra login prompt).
-3) Re-test photo upload flow after verifying service role key.
+1) Deploy generate-pdf Edge Function and reload Supabase schema cache.
+2) Submit a job and confirm ai_ready → pdf_pending → complete with pdf_url set.
+3) If needed, add UI for editing AI estimate line items post-submit.

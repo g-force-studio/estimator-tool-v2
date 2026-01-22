@@ -306,3 +306,22 @@ Use this file to capture decisions, changes, and open questions after each worki
   - Next actions:
     - [ ] Redeploy and verify /api/uploads/signed?debug=1 returns expected key shape
     - [ ] Re-test magic link flow end-to-end
+
+- Date/Time (2026-01-21 15:30), Session Goal: Stabilize estimate submit, pricing refs, and PDF generation on Netlify
+  - What changed:
+    - Added Netlify Next.js plugin and updated README deployment notes to Netlify
+    - Added ai_outputs migration and pricing_materials/pricing_labor tables with RLS
+    - Added /api/jobs/[id]/ai-output endpoint and submit flow refresh logic
+    - Added debug info to estimate route and fixed route param id usage
+    - Updated generate-pdf Edge Function to read new ai_json shape and trigger PDF after estimate
+    - Added AI estimate display on job detail page
+  - Decisions made:
+    - Split pricing into separate materials and labor tables with trade enum
+    - Use server-side PDF trigger after AI output is written
+  - Open questions / risks:
+    - Deploy updated generate-pdf Edge Function and confirm PDF generation in production
+    - Supabase schema cache reload needed after migrations (PGRST204 seen)
+  - Next actions:
+    - [ ] Deploy `generate-pdf` Edge Function and set ESTIMATES_BUCKET envs
+    - [ ] Re-test Submit → AI → PDF and confirm job status completes
+    - [ ] Add UI for editing/viewing AI line items if needed
