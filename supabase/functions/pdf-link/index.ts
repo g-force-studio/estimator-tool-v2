@@ -7,9 +7,19 @@ import {
 
 const SIGNED_URL_TTL_SECONDS = 3600;
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+};
+
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   if (req.method !== 'GET') {
-    return new Response('Method Not Allowed', { status: 405 });
+    return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
   }
 
   const url = new URL(req.url);
@@ -18,7 +28,7 @@ serve(async (req) => {
   if (!jobId) {
     return new Response(JSON.stringify({ error: 'job_id required' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
@@ -34,7 +44,7 @@ serve(async (req) => {
   if (fileError || !file) {
     return new Response(JSON.stringify({ error: 'PDF not found' }), {
       status: 404,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
@@ -43,7 +53,7 @@ serve(async (req) => {
       supabaseAdmin.storage.from(ESTIMATES_BUCKET).getPublicUrl(file.storage_path).data.publicUrl;
     return new Response(JSON.stringify({ pdf_url: publicUrl, public: true }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
@@ -54,12 +64,12 @@ serve(async (req) => {
   if (signedError || !signedData?.signedUrl) {
     return new Response(JSON.stringify({ error: signedError?.message || 'Failed to sign url' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   return new Response(JSON.stringify({ pdf_url: signedData.signedUrl, public: false }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
