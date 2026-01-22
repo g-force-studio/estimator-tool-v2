@@ -1,38 +1,32 @@
 Current focus:
-- Deploy updated generate-pdf Edge Function and confirm PDF generation in production.
-- Verify Submit → AI → PDF flow in Netlify with new ai_outputs and pricing tables.
+- Resolve pdf-link Invalid JWT error so Open PDF works in Netlify.
+- Ensure job status reaches complete after PDF generation.
 
 What's working:
-- Netlify deployment with Next.js plugin and updated README guidance.
-- AI estimate route writes ai_outputs and can return debug info for failures.
-- /api/jobs/[id]/ai-output endpoint and client refresh flow for submit.
-- Job detail UI now renders AI estimate details when available.
-- Manual curl test for generate-pdf succeeded.
+- Submit/Re-submit UI gating and PDF link shown only when status is complete.
+- generate-pdf updates status to complete even if pdf_url update fails.
+- pdf-link function now supports CORS and OPTIONS preflight.
 
 What's broken / pending:
-- PDF generation depends on deploying updated Edge Function to Supabase.
-- Schema cache reload may be required after migrations (PGRST204 seen).
+- pdf-link still returns Invalid JWT (likely stale session or project mismatch).
+- Open PDF fails in Netlify until JWT issue is resolved.
 
 Latest files touched:
-- app/api/jobs/[id]/estimate/route.ts
-- app/api/jobs/[id]/ai-output/route.ts
 - app/jobs/[id]/page.tsx
+- app/home-content.tsx
+- supabase/functions/pdf-link/index.ts
 - supabase/functions/generate-pdf/index.ts
-- supabase/migrations/20260120_add_ai_outputs.sql
-- supabase/migrations/20260120_add_pricing_tables.sql
-- README.md
-- netlify.toml
 - NOTES.md
 - code_state.txt
 
 Commands to run locally:
+- supabase functions deploy pdf-link
 - supabase functions deploy generate-pdf
-- supabase secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... ESTIMATES_BUCKET=estimates ESTIMATES_BUCKET_PUBLIC=true
 
 Last successful end-to-end test:
-- Curl test against generate-pdf succeeded (manual).
+- PDF generation succeeded; Open PDF still failing due to Invalid JWT.
 
 Next 3 concrete steps:
-1) Deploy generate-pdf Edge Function and reload Supabase schema cache.
-2) Submit a job and confirm ai_ready → pdf_pending → complete with pdf_url set.
-3) If needed, add UI for editing AI estimate line items post-submit.
+1) Deploy updated pdf-link Edge Function.
+2) Clear site data, sign in again, verify Authorization header for pdf-link.
+3) Re-test Open PDF from job detail and home list.

@@ -343,3 +343,19 @@ Use this file to capture decisions, changes, and open questions after each worki
   - Next actions:
     - [ ] Fix Submit/Re-submit button states and add PDF link on job detail
     - [ ] Add TODOs for estimate editing, customer info, and AI prompt config
+
+- Date/Time (2026-01-22 10:00), Session Goal: Fix PDF link access + align job status updates
+  - What changed:
+    - Added Submit/Re-submit UI gating and only show PDF link when status is complete
+    - Split generate-pdf job status update from pdf_url update for reliability
+    - Added auth header to pdf-link calls and CORS handling in pdf-link Edge Function
+    - Noted Vercel integration disabled; Netlify remains
+  - Decisions made:
+    - Keep NEXT_PUBLIC_SUPABASE_URL as base project URL (do not use function URL)
+    - Require authenticated JWT for pdf-link; address CORS preflight in function
+  - Open questions / risks:
+    - pdf-link still returns Invalid JWT; likely stale session or project mismatch
+  - Next actions:
+    - [ ] Deploy updated pdf-link Edge Function
+    - [ ] Clear site data, sign in again, and verify pdf-link request headers
+    - [ ] Re-test Open PDF on job detail and home list
