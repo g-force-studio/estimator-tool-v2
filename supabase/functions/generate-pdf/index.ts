@@ -243,10 +243,25 @@ serve(async (req) => {
     public_url: publicUrl,
   });
 
-  await supabaseAdmin
+  const { error: statusError } = await supabaseAdmin
     .from('jobs')
-    .update({ status: 'complete', pdf_url: publicUrl })
+    .update({ status: 'complete' })
     .eq('id', jobId);
+
+  if (statusError) {
+    console.error('Failed to update job status to complete:', statusError);
+  }
+
+  if (publicUrl) {
+    const { error: pdfUrlError } = await supabaseAdmin
+      .from('jobs')
+      .update({ pdf_url: publicUrl })
+      .eq('id', jobId);
+
+    if (pdfUrlError) {
+      console.error('Failed to update job pdf_url:', pdfUrlError);
+    }
+  }
 
   return new Response(JSON.stringify({ storage_path: storagePath, pdf_url: publicUrl }), {
     status: 200,
