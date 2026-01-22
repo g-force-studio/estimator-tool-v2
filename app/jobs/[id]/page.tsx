@@ -11,6 +11,7 @@ import { addToUploadQueue, uploadJobPhoto } from '@/lib/db/upload';
 import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
 import { debounce, formatDateTime } from '@/lib/utils';
 import { MoreIcon, OfflineIcon } from '@/components/icons';
+import { createClient } from '@/lib/supabase/client';
 import type { z } from 'zod';
 
 type JobFormData = z.infer<typeof jobSchema>;
@@ -519,7 +520,13 @@ export default function JobDetailPage() {
         return;
       }
 
-      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${jobId}`);
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${jobId}`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
       if (!response.ok) throw new Error('Failed to fetch PDF link');
       const data = await response.json();
       if (data.pdf_url) {

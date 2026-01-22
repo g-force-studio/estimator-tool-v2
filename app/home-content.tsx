@@ -5,6 +5,7 @@ import { getCachedJobs, cacheJobs } from '@/lib/db/idb';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { ClipboardIcon, OfflineIcon } from '@/components/icons';
+import { createClient } from '@/lib/supabase/client';
 
 type JobSummary = {
   id: string;
@@ -95,7 +96,13 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
         return;
       }
 
-      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${job.id}`);
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${job.id}`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch PDF link');
       }
