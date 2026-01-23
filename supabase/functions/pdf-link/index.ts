@@ -29,8 +29,6 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get('Authorization');
-  console.log('Auth header present:', !!authHeader);
-  console.log('Auth header prefix:', authHeader?.substring(0, 20));
 
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
@@ -46,19 +44,9 @@ serve(async (req) => {
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  console.log('Auth result - user:', user?.id, 'error:', authError?.message);
-
   if (authError || !user) {
-    console.error('Auth error details:', JSON.stringify(authError));
     return new Response(JSON.stringify({
-      error: 'Unauthorized',
-      details: authError?.message,
-      debug: {
-        hasAuthHeader: !!authHeader,
-        authHeaderPrefix: authHeader?.substring(0, 20),
-        supabaseUrl: SUPABASE_URL,
-        hasAnonKey: !!SUPABASE_ANON_KEY,
-      }
+      error: 'Unauthorized'
     }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -75,8 +63,6 @@ serve(async (req) => {
     });
   }
 
-  console.log('User:', user.id, 'requesting PDF for job:', jobId);
-
   const { data: job, error: jobError } = await supabase
     .from('jobs')
     .select('id')
@@ -84,62 +70,45 @@ serve(async (req) => {
     .single();
 
   if (jobError || !job) {
-    console.error('Job access denied:', jobError?.message);
     return new Response(JSON.stringify({
-      error: 'Job not found or access denied',
-      details: jobError?.message
+      error: 'Job not found or access denied'
     }), {
       status: 403,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  console.log('Fetching PDF file for job:', jobId);
-
   const { data: file, error: fileError } = await supabaseAdmin
     .from('job_files')
-    .select('*')
+    .select('storage_path')
     .eq('job_id', jobId)
     .eq('kind', 'pdf')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  console.log('File query result:', {
-    found: !!file,
-    storage_path: file?.storage_path,
-    error: fileError?.message
-  });
-
   if (fileError || !file) {
     return new Response(JSON.stringify({
-      error: 'PDF not found',
-      details: fileError?.message,
-      job_id: jobId
+      error: 'PDF not found'
     }), {
       status: 404,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  console.log('Creating signed URL for path:', file.storage_path);
-
   const { data: signedData, error: signedError } = await supabaseAdmin.storage
     .from(ESTIMATES_BUCKET)
     .createSignedUrl(file.storage_path, SIGNED_URL_TTL_SECONDS);
 
   if (signedError || !signedData?.signedUrl) {
-    console.error('Signed URL error:', signedError);
     return new Response(JSON.stringify({
-      error: signedError?.message || 'Failed to sign url',
-      storage_path: file.storage_path
+      error: 'Failed to generate PDF link'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  console.log('Returning signed URL');
   return new Response(JSON.stringify({ pdf_url: signedData.signedUrl }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

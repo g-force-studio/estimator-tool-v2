@@ -232,15 +232,11 @@ serve(async (req) => {
     });
   }
 
-  const publicUrl = ESTIMATES_BUCKET_PUBLIC
-    ? supabaseAdmin.storage.from(ESTIMATES_BUCKET).getPublicUrl(storagePath).data.publicUrl
-    : null;
-
   const { error: insertError } = await supabaseAdmin.from('job_files').insert({
     job_id: jobId,
     kind: 'pdf',
     storage_path: storagePath,
-    public_url: publicUrl,
+    public_url: null,
   });
 
   if (insertError) {
@@ -264,18 +260,7 @@ serve(async (req) => {
     console.error('Failed to update job status to complete:', statusError);
   }
 
-  if (publicUrl) {
-    const { error: pdfUrlError } = await supabaseAdmin
-      .from('jobs')
-      .update({ pdf_url: publicUrl })
-      .eq('id', jobId);
-
-    if (pdfUrlError) {
-      console.error('Failed to update job pdf_url:', pdfUrlError);
-    }
-  }
-
-  return new Response(JSON.stringify({ storage_path: storagePath, pdf_url: publicUrl }), {
+  return new Response(JSON.stringify({ storage_path: storagePath }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });

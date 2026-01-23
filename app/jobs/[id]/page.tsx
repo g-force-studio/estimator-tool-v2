@@ -510,27 +510,47 @@ export default function JobDetailPage() {
 
   const handleOpenPdf = async () => {
     try {
-      const supabase = createClient();
-
-      const { data: fileData, error: fileError } = await supabase
-        .from('job_files')
-        .select('public_url, storage_path')
-        .eq('job_id', jobId)
-        .eq('kind', 'pdf')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (fileError || !fileData) {
-        console.error('Failed to fetch PDF file:', fileError);
-        alert('PDF not found. Please try re-submitting the job.');
+      if (!funitif (BaseUrl) {
+        aler!('PDFflink iu nnavailable. Missing SuctionsBURL.');
         return;
       }
 
-      if (fileData.public_url) {
-        window.open(fileData.public_url, '_blank', 'noopener,noreferrer');
+      const supabase aseUrl) {
+        return;sssion.auth.getSession();
+      const}accessToken= sessionData?sessin?.accesstoken;
+
+      f (!accsToken {
+arPeaseign in  viw PDFs.;
+      corsturn;
+      }
+
+      const response = await fetch `${functionsBaseUrl}/pdf-link?upabas=${ crea}`, {eClient();
+      cohsaters: {nData } = await supabase.auth.getSession();
+        coAuthssizokion: `Be=rers$socDasnTok?na`,cess_token;
+      },
+};
+
+     iiff(!rcspossk.okn {        alert('Please sign in to view PDFs.');
+        constrnData=awat respons.json().cch(( =>(}));
+      }lnk rrorData
+ thrownw Erroerrorata.errr||'Faidofc PDFlink
+      }
+
+  co  const data = await response.json();          Authorization: `Bearer ${accessToken}`,
+        },ddf
+      });ddf
+
+       ithrowfn!w ErrorspNo onse.okrued
+        const errorData = await response.json().catch(() => ({}));
+        console.error('PDF link error:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch PDF link');
+      }
+
+      const data = await response.json();
+      if (data.pdf_url) {
+        window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
       } else {
-        alert('PDF URL not available. Please try again.');
+        throw new Error('No PDF URL returned');
       }
     } catch (error) {
       console.error('Failed to open PDF:', error);
