@@ -10,7 +10,7 @@ const SIGNED_URL_TTL_SECONDS = 3600;
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req) => {
@@ -18,7 +18,7 @@ serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  if (req.method !== 'GET') {
+  if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
   }
 
@@ -34,7 +34,6 @@ serve(async (req) => {
 
   console.log('Creating supabase client with user token');
 
-  // Use createSupabaseClient to validate the user's JWT
   const supabase = createSupabaseClient(authHeader);
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -50,8 +49,8 @@ serve(async (req) => {
     });
   }
 
-  const url = new URL(req.url);
-  const jobId = url.searchParams.get('job_id');
+  const body = await req.json();
+  const jobId = body.job_id;
 
   if (!jobId) {
     return new Response(JSON.stringify({ error: 'job_id required' }), {

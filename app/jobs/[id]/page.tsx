@@ -510,47 +510,23 @@ export default function JobDetailPage() {
 
   const handleOpenPdf = async () => {
     try {
-      if (!functionsBaseUrl) {
-        alert('PDF link is unavailable. Missing Supabase URL.');
-        return;
-      }
-
       const supabase = createClient();
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
 
-      console.log('[PDF] functionsBaseUrl:', functionsBaseUrl);
-      console.log('[PDF] accessToken present:', !!accessToken);
-      console.log('[PDF] accessToken length:', accessToken?.length);
-      console.log('[PDF] accessToken preview:', accessToken?.substring(0, 50) + '...');
+      console.log('[PDF] Invoking pdf-link function for job:', jobId);
 
-      if (!accessToken) {
-        alert('Please sign in to view PDFs.');
-        return;
-      }
-
-      const url = `${functionsBaseUrl}/pdf-link?job_id=${jobId}`;
-      console.log('[PDF] Fetching:', url);
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+      const { data, error } = await supabase.functions.invoke('pdf-link', {
+        body: { job_id: jobId },
       });
 
-      console.log('[PDF] Response status:', response.status);
-      console.log('[PDF] Response ok:', response.ok);
+      console.log('[PDF] Response:', { data, error });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[PDF] Error response:', errorData);
-        throw new Error(errorData.error || 'Failed to fetch PDF link');
+      if (error) {
+        console.error('[PDF] Error:', error);
+        throw new Error(error.message || 'Failed to fetch PDF link');
       }
 
-      const data = await response.json();
-      console.log('[PDF] Success response:', data);
-
-      if (data.pdf_url) {
+      if (data?.pdf_url) {
+        console.log('[PDF] Opening URL:', data.pdf_url);
         window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
       } else {
         throw new Error('No PDF URL returned');
