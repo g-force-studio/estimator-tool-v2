@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import {
   supabaseAdmin,
+  createSupabaseClient,
   ESTIMATES_BUCKET,
 } from '../_shared/supabase.ts';
 
@@ -31,10 +32,11 @@ serve(async (req) => {
     });
   }
 
-  const token = authHeader.replace('Bearer ', '');
-  console.log('Token length:', token.length);
+  console.log('Creating supabase client with user token');
 
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  // Use createSupabaseClient to validate the user's JWT
+  const supabase = createSupabaseClient(authHeader);
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   console.log('Auth result:', { userId: user?.id, error: authError?.message });
 
