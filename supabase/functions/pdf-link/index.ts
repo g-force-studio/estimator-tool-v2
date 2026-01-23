@@ -1,15 +1,8 @@
-// @ts-expect-error Deno import via URL is resolved in edge runtime, not by TS.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.1';
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import {
   supabaseAdmin,
   ESTIMATES_BUCKET,
 } from '../_shared/supabase.ts';
-
-// @ts-expect-error Deno global is only available in edge runtime.
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
-// @ts-expect-error Deno global is only available in edge runtime.
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
 const SIGNED_URL_TTL_SECONDS = 3600;
 
@@ -37,12 +30,8 @@ serve(async (req) => {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false },
-  });
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
   if (authError || !user) {
     return new Response(JSON.stringify({
@@ -63,15 +52,31 @@ serve(async (req) => {
     });
   }
 
-  const { data: job, error: jobError } = await supabase
+  const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id')
+    .select('workspace_id')
     .eq('id', jobId)
     .single();
 
   if (jobError || !job) {
     return new Response(JSON.stringify({
-      error: 'Job not found or access denied'
+      error: 'Job not found'
+    }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { data: membership } = await supabaseAdmin
+    .from('workspace_members')
+    .select('user_id')
+    .eq('workspace_id', job.workspace_id)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!membership) {
+    return new Response(JSON.stringify({
+      error: 'Access denied'
     }), {
       status: 403,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
