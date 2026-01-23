@@ -22,6 +22,7 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get('Authorization');
+  console.log('Auth header present:', !!authHeader);
 
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
@@ -31,11 +32,16 @@ serve(async (req) => {
   }
 
   const token = authHeader.replace('Bearer ', '');
+  console.log('Token length:', token.length);
+
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+  console.log('Auth result:', { userId: user?.id, error: authError?.message });
 
   if (authError || !user) {
     return new Response(JSON.stringify({
-      error: 'Unauthorized'
+      error: 'Invalid JWT',
+      message: authError?.message
     }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -52,6 +58,8 @@ serve(async (req) => {
     });
   }
 
+  console.log('Fetching job:', jobId, 'for user:', user.id);
+
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select('workspace_id')
@@ -59,6 +67,7 @@ serve(async (req) => {
     .single();
 
   if (jobError || !job) {
+    console.error('Job fetch error:', jobError?.message);
     return new Response(JSON.stringify({
       error: 'Job not found'
     }), {
@@ -66,6 +75,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  console.log('Checking membership for workspace:', job.workspace_id);
 
   const { data: membership } = await supabaseAdmin
     .from('workspace_members')
@@ -75,6 +86,7 @@ serve(async (req) => {
     .maybeSingle();
 
   if (!membership) {
+    console.error('Access denied - no membership found');
     return new Response(JSON.stringify({
       error: 'Access denied'
     }), {
@@ -82,6 +94,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  console.log('Fetching PDF file for job:', jobId);
 
   const { data: file, error: fileError } = await supabaseAdmin
     .from('job_files')
@@ -93,6 +107,7 @@ serve(async (req) => {
     .maybeSingle();
 
   if (fileError || !file) {
+    console.error('File fetch error:', fileError?.message);
     return new Response(JSON.stringify({
       error: 'PDF not found'
     }), {
@@ -101,11 +116,14 @@ serve(async (req) => {
     });
   }
 
+  console.log('Creating signed URL for:', file.storage_path);
+
   const { data: signedData, error: signedError } = await supabaseAdmin.storage
     .from(ESTIMATES_BUCKET)
     .createSignedUrl(file.storage_path, SIGNED_URL_TTL_SECONDS);
 
   if (signedError || !signedData?.signedUrl) {
+    console.error('Signed URL error:', signedError);
     return new Response(JSON.stringify({
       error: 'Failed to generate PDF link'
     }), {
@@ -114,6 +132,7 @@ serve(async (req) => {
     });
   }
 
+  console.log('Success - returning signed URL');
   return new Response(JSON.stringify({ pdf_url: signedData.signedUrl }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

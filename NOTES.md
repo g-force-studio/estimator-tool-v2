@@ -359,3 +359,19 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Deploy updated pdf-link Edge Function
     - [ ] Clear site data, sign in again, and verify pdf-link request headers
     - [ ] Re-test Open PDF on job detail and home list
+
+- Date/Time (2026-01-23 15:13), Session Goal: Review JWT PDF link fixes and private bucket changes
+  - What changed:
+    - Switched PDF opening flow to use pdf-link with signed URLs (private bucket), replacing direct public_url usage
+    - generate-pdf now stores only storage_path in job_files when using private bucket
+    - pdf-link updated to validate JWT via supabaseAdmin.auth.getUser() and to enforce workspace membership before issuing signed URL
+    - Added detailed client/server debug logging around PDF link auth and responses
+  - Decisions made:
+    - Use private estimates bucket with signed URL delivery via pdf-link
+    - Validate access via workspace membership, not just job lookup
+  - Open questions / risks:
+    - Client console logs expose access token previews; remove or gate behind debug flag before production
+    - pdf-link still logs verbose auth and request details; confirm whether to keep or reduce
+  - Next actions:
+    - [ ] Re-test Open PDF end-to-end in Netlify after deploying pdf-link with JWT validation fix
+    - [ ] Remove or gate PDF debug logs in app/jobs/[id]/page.tsx and supabase/functions/pdf-link/index.ts
