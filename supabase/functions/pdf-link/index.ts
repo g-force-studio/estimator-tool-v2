@@ -1,7 +1,6 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import {
   supabaseAdmin,
-  createSupabaseClient,
   ESTIMATES_BUCKET,
   ESTIMATES_BUCKET_PUBLIC,
 } from '../_shared/supabase.ts';
@@ -23,57 +22,12 @@ serve(async (req) => {
     return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
   }
 
-  const authHeader = req.headers.get('Authorization');
-  console.log('Auth header present:', !!authHeader);
-
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  const supabase = createSupabaseClient(authHeader);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  console.log('Auth check - user:', user?.id, 'error:', authError?.message);
-
-  if (authError || !user) {
-    return new Response(JSON.stringify({
-      error: 'Invalid or expired token',
-      details: authError?.message
-    }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
   const url = new URL(req.url);
   const jobId = url.searchParams.get('job_id');
 
   if (!jobId) {
     return new Response(JSON.stringify({ error: 'job_id required' }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  console.log('Checking job access for user:', user.id, 'job:', jobId);
-
-  const { data: job, error: jobError } = await supabase
-    .from('jobs')
-    .select('workspace_id')
-    .eq('id', jobId)
-    .single();
-
-  console.log('Job query result:', { job, error: jobError?.message });
-
-  if (jobError || !job) {
-    return new Response(JSON.stringify({
-      error: 'Job not found or access denied',
-      details: jobError?.message
-    }), {
-      status: 404,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -89,7 +43,12 @@ serve(async (req) => {
     .limit(1)
     .maybeSingle();
 
-  console.log('File query result:', { file: file?.storage_path, error: fileError?.message });
+  console.log('File query result:', {
+    found: !!file,
+    storage_path: file?.storage_path,
+    public_url: file?.public_url,
+    error: fileError?.message
+  });
 
   if (fileError || !file) {
     return new Response(JSON.stringify({
@@ -120,7 +79,10 @@ serve(async (req) => {
 
   if (signedError || !signedData?.signedUrl) {
     console.error('Signed URL error:', signedError);
-    return new Response(JSON.stringify({ error: signedError?.message || 'Failed to sign url' }), {
+    return new Response(JSON.stringify({
+      error: signedError?.message || 'Failed to sign url',
+      storage_path: file.storage_path
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
