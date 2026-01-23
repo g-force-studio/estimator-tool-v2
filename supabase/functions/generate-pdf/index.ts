@@ -236,12 +236,24 @@ serve(async (req) => {
     ? supabaseAdmin.storage.from(ESTIMATES_BUCKET).getPublicUrl(storagePath).data.publicUrl
     : null;
 
-  await supabaseAdmin.from('job_files').insert({
+  const { error: insertError } = await supabaseAdmin.from('job_files').insert({
     job_id: jobId,
     kind: 'pdf',
     storage_path: storagePath,
     public_url: publicUrl,
   });
+
+  if (insertError) {
+    console.error('Failed to insert job_files record:', insertError);
+    await supabaseAdmin
+      .from('jobs')
+      .update({ status: 'pdf_error', error_message: `Failed to save PDF record: ${insertError.message}` })
+      .eq('id', jobId);
+    return new Response(JSON.stringify({ error: insertError.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   const { error: statusError } = await supabaseAdmin
     .from('jobs')
