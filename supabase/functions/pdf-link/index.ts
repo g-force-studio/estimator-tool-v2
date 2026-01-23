@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import {
   supabaseAdmin,
+  createSupabaseClient,
   ESTIMATES_BUCKET,
   ESTIMATES_BUCKET_PUBLIC,
 } from '../_shared/supabase.ts';
@@ -22,12 +23,43 @@ serve(async (req) => {
     return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
   }
 
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const supabase = createSupabaseClient(authHeader);
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const url = new URL(req.url);
   const jobId = url.searchParams.get('job_id');
 
   if (!jobId) {
     return new Response(JSON.stringify({ error: 'job_id required' }), {
       status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { data: job, error: jobError } = await supabase
+    .from('jobs')
+    .select('workspace_id')
+    .eq('id', jobId)
+    .single();
+
+  if (jobError || !job) {
+    return new Response(JSON.stringify({ error: 'Job not found or access denied' }), {
+      status: 404,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
