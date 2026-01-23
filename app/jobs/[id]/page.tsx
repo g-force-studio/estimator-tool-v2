@@ -510,37 +510,27 @@ export default function JobDetailPage() {
 
   const handleOpenPdf = async () => {
     try {
-      if (!funitif (BaseUrl) {
-        aler!('PDFflink iu nnavailable. Missing SuctionsBURL.');
+      if (!functionsBaseUrl) {
+        alert('PDF link is unavailable. Missing Supabase URL.');
         return;
       }
 
-      const supabase aseUrl) {
-        return;sssion.auth.getSession();
-      const}accessToken= sessionData?sessin?.accesstoken;
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
 
-      f (!accsToken {
-arPeaseign in  viw PDFs.;
-      corsturn;
+      if (!accessToken) {
+        alert('Please sign in to view PDFs.');
+        return;
       }
 
-      const response = await fetch `${functionsBaseUrl}/pdf-link?upabas=${ crea}`, {eClient();
-      cohsaters: {nData } = await supabase.auth.getSession();
-        coAuthssizokion: `Be=rers$socDasnTok?na`,cess_token;
-      },
-};
+      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${jobId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
-     iiff(!rcspossk.okn {        alert('Please sign in to view PDFs.');
-        constrnData=awat respons.json().cch(( =>(}));
-      }lnk rrorData
- thrownw Erroerrorata.errr||'Faidofc PDFlink
-      }
-
-  co  const data = await response.json();          Authorization: `Bearer ${accessToken}`,
-        },ddf
-      });ddf
-
-       ithrowfn!w ErrorspNo onse.okrued
+      if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('PDF link error:', errorData);
         throw new Error(errorData.error || 'Failed to fetch PDF link');
