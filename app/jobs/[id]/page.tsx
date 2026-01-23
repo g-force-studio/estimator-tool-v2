@@ -510,46 +510,27 @@ export default function JobDetailPage() {
 
   const handleOpenPdf = async () => {
     try {
-      if (!functionsBaseUrl) {
-        alert('PDF link is unavailable. Missing Supabase URL.');
-        return;
-      }
-
       const supabase = createClient();
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
 
-      console.log('PDF Open - Session check:', {
-        hasSession: !!sessionData?.session,
-        hasToken: !!accessToken,
-        tokenPrefix: accessToken?.substring(0, 20),
-        functionsBaseUrl,
-      });
+      const { data: fileData, error: fileError } = await supabase
+        .from('job_files')
+        .select('public_url, storage_path')
+        .eq('job_id', jobId)
+        .eq('kind', 'pdf')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (!accessToken) {
-        alert('Please sign in to view PDFs.');
+      if (fileError || !fileData) {
+        console.error('Failed to fetch PDF file:', fileError);
+        alert('PDF not found. Please try re-submitting the job.');
         return;
       }
 
-      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${jobId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      console.log('PDF link response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('PDF link error:', errorData);
-        throw new Error(errorData.error || 'Failed to fetch PDF link');
-      }
-
-      const data = await response.json();
-      if (data.pdf_url) {
-        window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
+      if (fileData.public_url) {
+        window.open(fileData.public_url, '_blank', 'noopener,noreferrer');
       } else {
-        throw new Error('No PDF URL returned');
+        alert('PDF URL not available. Please try again.');
       }
     } catch (error) {
       console.error('Failed to open PDF:', error);
