@@ -519,6 +519,13 @@ export default function JobDetailPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
+      console.log('PDF Open - Session check:', {
+        hasSession: !!sessionData?.session,
+        hasToken: !!accessToken,
+        tokenPrefix: accessToken?.substring(0, 20),
+        functionsBaseUrl,
+      });
+
       if (!accessToken) {
         alert('Please sign in to view PDFs.');
         return;
@@ -529,6 +536,8 @@ export default function JobDetailPage() {
           Authorization: `Bearer ${accessToken}`,
         },
       });
+
+      console.log('PDF link response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

@@ -1,3 +1,5 @@
+// @ts-expect-error Deno import via URL is resolved in edge runtime, not by TS.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.1';
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import {
   supabaseAdmin,
@@ -17,9 +19,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
 };
 
-// @ts-expect-error Deno import via URL is resolved in edge runtime, not by TS.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.1';
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -30,6 +29,8 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get('Authorization');
+  console.log('Auth header present:', !!authHeader);
+  console.log('Auth header prefix:', authHeader?.substring(0, 20));
 
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
@@ -45,11 +46,19 @@ serve(async (req) => {
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
+  console.log('Auth result - user:', user?.id, 'error:', authError?.message);
+
   if (authError || !user) {
-    console.error('Auth error:', authError?.message);
+    console.error('Auth error details:', JSON.stringify(authError));
     return new Response(JSON.stringify({
       error: 'Unauthorized',
-      details: authError?.message
+      details: authError?.message,
+      debug: {
+        hasAuthHeader: !!authHeader,
+        authHeaderPrefix: authHeader?.substring(0, 20),
+        supabaseUrl: SUPABASE_URL,
+        hasAnonKey: !!SUPABASE_ANON_KEY,
+      }
     }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
