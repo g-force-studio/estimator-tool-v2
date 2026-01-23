@@ -14,6 +14,10 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('=== PDF-LINK FUNCTION INVOKED ===');
+  console.log('Method:', req.method);
+  console.log('Headers:', Object.fromEntries(req.headers.entries()));
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -22,10 +26,12 @@ serve(async (req) => {
     return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
   }
 
-  const authHeader = req.headers.get('Authorization');
+  const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
   console.log('Auth header present:', !!authHeader);
+  console.log('Auth header value:', authHeader?.substring(0, 50));
 
   if (!authHeader) {
+    console.error('Missing authorization header');
     return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -40,6 +46,7 @@ serve(async (req) => {
   console.log('Auth result:', { userId: user?.id, error: authError?.message });
 
   if (authError || !user) {
+    console.error('Auth failed:', authError);
     return new Response(JSON.stringify({
       error: 'Invalid JWT',
       message: authError?.message
