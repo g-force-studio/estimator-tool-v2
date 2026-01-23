@@ -510,27 +510,24 @@ export default function JobDetailPage() {
 
   const handleOpenPdf = async () => {
     try {
-      if (job?.pdf_url) {
-        window.open(job.pdf_url, '_blank', 'noopener,noreferrer');
-        return;
-      }
-
       if (!functionsBaseUrl) {
         alert('PDF link is unavailable. Missing Supabase URL.');
         return;
       }
 
-      const supabase = createClient();
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${jobId}`);
 
-      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${jobId}`, {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      });
-      if (!response.ok) throw new Error('Failed to fetch PDF link');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('PDF link error:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch PDF link');
+      }
+
       const data = await response.json();
       if (data.pdf_url) {
         window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
+      } else {
+        throw new Error('No PDF URL returned');
       }
     } catch (error) {
       console.error('Failed to open PDF:', error);

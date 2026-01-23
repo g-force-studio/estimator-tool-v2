@@ -2,7 +2,6 @@ import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import {
   supabaseAdmin,
   ESTIMATES_BUCKET,
-  ESTIMATES_BUCKET_PUBLIC,
 } from '../_shared/supabase.ts';
 
 const SIGNED_URL_TTL_SECONDS = 3600;
@@ -46,7 +45,6 @@ serve(async (req) => {
   console.log('File query result:', {
     found: !!file,
     storage_path: file?.storage_path,
-    public_url: file?.public_url,
     error: fileError?.message
   });
 
@@ -57,16 +55,6 @@ serve(async (req) => {
       job_id: jobId
     }), {
       status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  if (ESTIMATES_BUCKET_PUBLIC) {
-    const publicUrl = file.public_url ??
-      supabaseAdmin.storage.from(ESTIMATES_BUCKET).getPublicUrl(file.storage_path).data.publicUrl;
-    console.log('Returning public URL:', publicUrl);
-    return new Response(JSON.stringify({ pdf_url: publicUrl, public: true }), {
-      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -89,7 +77,7 @@ serve(async (req) => {
   }
 
   console.log('Returning signed URL');
-  return new Response(JSON.stringify({ pdf_url: signedData.signedUrl, public: false }), {
+  return new Response(JSON.stringify({ pdf_url: signedData.signedUrl }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
