@@ -515,7 +515,20 @@ export default function JobDetailPage() {
         return;
       }
 
-      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${jobId}`);
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        alert('Please sign in to view PDFs.');
+        return;
+      }
+
+      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${jobId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
