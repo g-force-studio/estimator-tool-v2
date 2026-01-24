@@ -358,6 +358,11 @@ export default function NewJobPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {isSubmitting && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-100">
+              Sit tight, we are creating the job for you.
+            </div>
+          )}
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Job Title *

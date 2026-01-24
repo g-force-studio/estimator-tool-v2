@@ -858,6 +858,13 @@ export default function JobDetailPage() {
               </div>
             )}
 
+            {(isSubmittingJob || job.status === 'ai_pending' || job.status === 'pdf_pending') && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-100">
+                {job.status === 'pdf_pending'
+                  ? 'Sit tight, your PDF is being created.'
+                  : 'Sit tight, your estimate is being created.'}
+              </div>
+            )}
             <div className="flex flex-wrap gap-3 pt-4">
               <button
                 onClick={() => router.back()}
