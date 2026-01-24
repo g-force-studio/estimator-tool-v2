@@ -1,7 +1,6 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import {
   supabaseAdmin,
-  createSupabaseClient,
   ESTIMATES_BUCKET,
 } from '../_shared/supabase.ts';
 
@@ -15,8 +14,6 @@ const corsHeaders = {
 
 serve(async (req) => {
   console.log('=== PDF-LINK FUNCTION INVOKED ===');
-  console.log('Method:', req.method);
-  console.log('Headers:', Object.fromEntries(req.headers.entries()));
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -26,123 +23,69 @@ serve(async (req) => {
     return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
   }
 
-  const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
-  console.log('Auth header present:', !!authHeader);
-  console.log('Auth header value:', authHeader?.substring(0, 50));
+  try {
+    const body = await req.json();
+    const jobId = body.job_id;
 
-  if (!authHeader) {
-    console.error('Missing authorization header');
-    return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-      status: 401,
+    console.log('Job ID:', jobId);
+
+    if (!jobId) {
+      return new Response(JSON.stringify({ error: 'job_id required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Fetching PDF file for job:', jobId);
+
+    const { data: file, error: fileError } = await supabaseAdmin
+      .from('job_files')
+      .select('storage_path')
+      .eq('job_id', jobId)
+      .eq('kind', 'pdf')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fileError || !file) {
+      console.error('File fetch error:', fileError?.message);
+      return new Response(JSON.stringify({
+        error: 'PDF not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Creating signed URL for:', file.storage_path);
+
+    const { data: signedData, error: signedError } = await supabaseAdmin.storage
+      .from(ESTIMATES_BUCKET)
+      .createSignedUrl(file.storage_path, SIGNED_URL_TTL_SECONDS);
+
+    if (signedError || !signedData?.signedUrl) {
+      console.error('Signed URL error:', signedError);
+      return new Response(JSON.stringify({
+        error: 'Failed to generate PDF link'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Success - returning signed URL');
+    return new Response(JSON.stringify({ pdf_url: signedData.signedUrl }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  }
-
-  console.log('Creating supabase client with user token');
-
-  const supabase = createSupabaseClient(authHeader);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  console.log('Auth result:', { userId: user?.id, error: authError?.message });
-
-  if (authError || !user) {
-    console.error('Auth failed:', authError);
+  } catch (error) {
+    console.error('Function error:', error);
     return new Response(JSON.stringify({
-      error: 'Invalid JWT',
-      message: authError?.message
-    }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  const body = await req.json();
-  const jobId = body.job_id;
-
-  if (!jobId) {
-    return new Response(JSON.stringify({ error: 'job_id required' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  console.log('Fetching job:', jobId, 'for user:', user.id);
-
-  const { data: job, error: jobError } = await supabaseAdmin
-    .from('jobs')
-    .select('workspace_id')
-    .eq('id', jobId)
-    .single();
-
-  if (jobError || !job) {
-    console.error('Job fetch error:', jobError?.message);
-    return new Response(JSON.stringify({
-      error: 'Job not found'
-    }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  console.log('Checking membership for workspace:', job.workspace_id);
-
-  const { data: membership } = await supabaseAdmin
-    .from('workspace_members')
-    .select('user_id')
-    .eq('workspace_id', job.workspace_id)
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (!membership) {
-    console.error('Access denied - no membership found');
-    return new Response(JSON.stringify({
-      error: 'Access denied'
-    }), {
-      status: 403,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  console.log('Fetching PDF file for job:', jobId);
-
-  const { data: file, error: fileError } = await supabaseAdmin
-    .from('job_files')
-    .select('storage_path')
-    .eq('job_id', jobId)
-    .eq('kind', 'pdf')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (fileError || !file) {
-    console.error('File fetch error:', fileError?.message);
-    return new Response(JSON.stringify({
-      error: 'PDF not found'
-    }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  console.log('Creating signed URL for:', file.storage_path);
-
-  const { data: signedData, error: signedError } = await supabaseAdmin.storage
-    .from(ESTIMATES_BUCKET)
-    .createSignedUrl(file.storage_path, SIGNED_URL_TTL_SECONDS);
-
-  if (signedError || !signedData?.signedUrl) {
-    console.error('Signed URL error:', signedError);
-    return new Response(JSON.stringify({
-      error: 'Failed to generate PDF link'
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  console.log('Success - returning signed URL');
-  return new Response(JSON.stringify({ pdf_url: signedData.signedUrl }), {
-    status: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
 });
