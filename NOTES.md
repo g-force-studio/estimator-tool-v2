@@ -375,3 +375,18 @@ Use this file to capture decisions, changes, and open questions after each worki
   - Next actions:
     - [ ] Re-test Open PDF end-to-end in Netlify after deploying pdf-link with JWT validation fix
     - [ ] Remove or gate PDF debug logs in app/jobs/[id]/page.tsx and supabase/functions/pdf-link/index.ts
+
+- Date/Time (2026-01-23 19:31), Session Goal: Align pdf-link request method and update logs
+  - What changed:
+    - Switched job detail PDF open to use supabase.functions.invoke with POST body (job_id)
+    - Updated home list PDF open to POST /pdf-link with JSON body and optional Authorization header
+    - pdf-link Edge Function now expects POST only and reads job_id from JSON body
+    - Added/kept verbose PDF link logging for diagnosis
+  - Decisions made:
+    - Use POST for pdf-link to align with supabase.functions.invoke usage
+  - Open questions / risks:
+    - pdf-link no longer validates JWT or workspace membership; private PDF links can be requested without auth
+    - Logging is verbose and may expose sensitive metadata
+  - Next actions:
+    - [ ] Decide whether pdf-link should require JWT + membership checks again
+    - [ ] Re-test Open PDF end-to-end after deploy to confirm 401s are resolved
