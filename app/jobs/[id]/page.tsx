@@ -12,6 +12,7 @@ import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
 import { debounce, formatDateTime } from '@/lib/utils';
 import { MoreIcon, OfflineIcon } from '@/components/icons';
 import { createClient } from '@/lib/supabase/client';
+import useAppleDialog from '@/lib/use-apple-dialog';
 import type { z } from 'zod';
 
 type JobFormData = z.infer<typeof jobSchema>;
@@ -120,6 +121,7 @@ export default function JobDetailPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMountedRef = useRef(true);
   const [aiOutput, setAiOutput] = useState<AiOutput | null>(null);
+  const { dialog, showAlert, showConfirm, showPrompt } = useAppleDialog();
   const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
     : '';
@@ -367,12 +369,18 @@ export default function JobDetailPage() {
     setIsMenuOpen(false);
     const validItems = getValidLineItems();
     if (validItems.length === 0) {
-      alert('Add at least one line item before saving as a template.');
+      await showAlert('Add at least one line item before saving as a template.');
       return;
     }
 
     const nameDefault = job?.title || 'New Template';
-    const name = prompt('Template name', nameDefault);
+    const name = await showPrompt('Template name', {
+      title: 'Save Template',
+      primaryLabel: 'Save',
+      secondaryLabel: 'Cancel',
+      defaultValue: nameDefault,
+      placeholder: 'Template name',
+    });
     if (!name) return;
 
     const payload = {
@@ -398,7 +406,7 @@ export default function JobDetailPage() {
         if (!response.ok) throw new Error('Failed to create template');
         const result = await response.json();
         await createTemplate(result);
-        alert('Template saved.');
+        await showAlert('Template saved.');
       } else {
         const templateData = {
           id: crypto.randomUUID(),
@@ -412,11 +420,11 @@ export default function JobDetailPage() {
           table: 'templates',
           data: templateData,
         });
-        alert('Template saved locally. It will sync when you are online.');
+        await showAlert('Template saved locally. It will sync when you are online.');
       }
     } catch (error) {
       console.error('Error saving template:', error);
-      alert('Failed to save template. Please try again.');
+      await showAlert('Failed to save template. Please try again.');
     }
   };
 
@@ -476,14 +484,17 @@ export default function JobDetailPage() {
       setPhotoPreviewUrls([]);
     } catch (error) {
       console.error('Error updating job:', error);
-      alert('Failed to update job. Please try again.');
+      await showAlert('Failed to update job. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this job?')) return;
+    if (!(await showConfirm('Are you sure you want to delete this job?', {
+      primaryLabel: 'Delete',
+      secondaryLabel: 'Cancel',
+    }))) return;
 
     try {
       if (isOnline) {
@@ -504,7 +515,7 @@ export default function JobDetailPage() {
       router.push('/');
     } catch (error) {
       console.error('Error deleting job:', error);
-      alert('Failed to delete job. Please try again.');
+      await showAlert('Failed to delete job. Please try again.');
     }
   };
 
@@ -533,12 +544,15 @@ export default function JobDetailPage() {
       }
     } catch (error) {
       console.error('[PDF] Failed to open PDF:', error);
-      alert('Failed to open PDF. Please try again.');
+      await showAlert('Failed to open PDF. Please try again.');
     }
   };
 
   const handleSubmitJob = async () => {
-    if (!confirm('Submit this job for an estimate?')) return;
+    if (!(await showConfirm('Submit this job for an estimate?', {
+      primaryLabel: 'Submit',
+      secondaryLabel: 'Cancel',
+    }))) return;
 
     try {
       setIsSubmittingJob(true);
@@ -575,12 +589,12 @@ export default function JobDetailPage() {
           data: updatedJob,
         });
         setJob(updatedJob as Job);
-        alert('You are offline. The job was queued, but the estimate was not generated.');
+        await showAlert('You are offline. The job was queued, but the estimate was not generated.');
       }
     } catch (error) {
       console.error('Error submitting job:', error);
       const message = error instanceof Error ? error.message : 'Failed to submit job. Please try again.';
-      alert(message);
+      await showAlert(message);
     } finally {
       setIsSubmittingJob(false);
     }
@@ -634,6 +648,7 @@ export default function JobDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+      {dialog}
       <div className="max-w-2xl mx-auto p-4">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

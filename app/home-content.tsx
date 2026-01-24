@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 import { ClipboardIcon, OfflineIcon } from '@/components/icons';
 import { createClient } from '@/lib/supabase/client';
+import useAppleDialog from '@/lib/use-apple-dialog';
 
 type JobSummary = {
   id: string;
@@ -40,6 +41,7 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(true);
+  const { dialog, showAlert } = useAppleDialog();
   const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
     : '';
@@ -92,7 +94,7 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       }
 
       if (!functionsBaseUrl) {
-        alert('PDF link is unavailable. Missing Supabase URL.');
+        await showAlert('PDF link is unavailable. Missing Supabase URL.');
         return;
       }
 
@@ -117,7 +119,7 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       }
     } catch (error) {
       console.error('Failed to open PDF:', error);
-      alert('Failed to open PDF. Please try again.');
+      await showAlert('Failed to open PDF. Please try again.');
     }
   };
 
@@ -131,6 +133,7 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
 
   return (
     <main className="p-4 space-y-4">
+      {dialog}
       {!online && (
         <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-sm text-yellow-700 dark:text-yellow-300 flex items-center gap-2">
           <OfflineIcon className="h-4 w-4" />

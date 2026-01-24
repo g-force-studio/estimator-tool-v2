@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
 import { createClient } from '@/lib/supabase/client';
+import useAppleDialog from '@/lib/use-apple-dialog';
 
 type Tab = 'workspace' | 'members' | 'invites';
 
@@ -61,6 +62,7 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [themePreference, setThemePreference] = useState<ThemePreference>('system');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { dialog, showAlert, showConfirm } = useAppleDialog();
 
   const [workspaceName, setWorkspaceName] = useState('');
   const [taxRate, setTaxRate] = useState('');
@@ -216,11 +218,11 @@ export default function SettingsPage() {
 
       if (!brandResponse.ok) throw new Error('Failed to update workspace settings');
 
-      alert('Workspace updated successfully');
+      await showAlert('Workspace updated successfully');
       loadData();
     } catch (error) {
       console.error('Error updating workspace:', error);
-      alert('Failed to update workspace');
+      await showAlert('Failed to update workspace');
     }
   };
 
@@ -242,11 +244,11 @@ export default function SettingsPage() {
 
       if (!response.ok) throw new Error('Failed to update settings');
 
-      alert('Workspace settings updated successfully');
+      await showAlert('Workspace settings updated successfully');
       loadData();
     } catch (error) {
       console.error('Error updating workspace settings:', error);
-      alert('Failed to update workspace settings');
+      await showAlert('Failed to update workspace settings');
     }
   };
 
@@ -286,17 +288,17 @@ export default function SettingsPage() {
 
       if (!response.ok) throw new Error('Failed to update branding');
 
-      alert('Branding updated successfully');
+      await showAlert('Branding updated successfully');
       loadData();
     } catch (error) {
       console.error('Error updating branding:', error);
-      alert('Failed to update branding');
+      await showAlert('Failed to update branding');
     }
   };
 
   const handleSendInvite = async () => {
     if (!inviteEmail) {
-      alert('Please enter an email address');
+      await showAlert('Please enter an email address');
       return;
     }
 
@@ -319,14 +321,17 @@ export default function SettingsPage() {
       loadData();
     } catch (error) {
       console.error('Error sending invite:', error);
-      alert('Failed to send invite');
+      await showAlert('Failed to send invite');
     } finally {
       setIsInviting(false);
     }
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
-    if (!confirm('Are you sure you want to revoke this invite?')) return;
+    if (!(await showConfirm('Are you sure you want to revoke this invite?', {
+      primaryLabel: 'Revoke',
+      secondaryLabel: 'Cancel',
+    }))) return;
 
     try {
       const response = await fetch(`/api/invites/${inviteId}`, {
@@ -335,16 +340,19 @@ export default function SettingsPage() {
 
       if (!response.ok) throw new Error('Failed to revoke invite');
 
-      alert('Invite revoked successfully');
+      await showAlert('Invite revoked successfully');
       loadData();
     } catch (error) {
       console.error('Error revoking invite:', error);
-      alert('Failed to revoke invite');
+      await showAlert('Failed to revoke invite');
     }
   };
 
   const handleRemoveMember = async (userId: string) => {
-    if (!confirm('Are you sure you want to remove this member?')) return;
+    if (!(await showConfirm('Are you sure you want to remove this member?', {
+      primaryLabel: 'Remove',
+      secondaryLabel: 'Cancel',
+    }))) return;
 
     try {
       const response = await fetch(`/api/workspaces/members/${userId}`, {
@@ -353,16 +361,19 @@ export default function SettingsPage() {
 
       if (!response.ok) throw new Error('Failed to remove member');
 
-      alert('Member removed successfully');
+      await showAlert('Member removed successfully');
       loadData();
     } catch (error) {
       console.error('Error removing member:', error);
-      alert('Failed to remove member');
+      await showAlert('Failed to remove member');
     }
   };
 
   const handleSignOut = async () => {
-    if (!confirm('Sign out of this account?')) return;
+    if (!(await showConfirm('Sign out of this account?', {
+      primaryLabel: 'Sign out',
+      secondaryLabel: 'Cancel',
+    }))) return;
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.signOut();
@@ -370,12 +381,13 @@ export default function SettingsPage() {
       router.push('/auth/login');
     } catch (error) {
       console.error('Error signing out:', error);
-      alert('Failed to sign out. Please try again.');
+      await showAlert('Failed to sign out. Please try again.');
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+      {dialog}
       <div className="max-w-2xl mx-auto p-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Settings</h1>
 
@@ -704,9 +716,9 @@ export default function SettingsPage() {
                           className="flex-1 px-3 py-2 text-sm border border-green-300 dark:border-green-700 rounded bg-white dark:bg-gray-800"
                         />
                         <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(inviteLink);
-                            alert('Link copied!');
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(inviteLink);
+                            await showAlert('Link copied!');
                           }}
                           className="px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
                         >

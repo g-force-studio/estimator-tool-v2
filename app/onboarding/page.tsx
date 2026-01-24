@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import useAppleDialog from '@/lib/use-apple-dialog';
 
 export default function OnboardingPage() {
   const [workspaceName, setWorkspaceName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const { dialog, showPrompt } = useAppleDialog();
 
   const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +39,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      {dialog}
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold">Welcome to RelayKit</h1>
@@ -82,9 +85,14 @@ export default function OnboardingPage() {
         <div className="text-center text-sm text-muted-foreground">
           <p>Have an invite link?</p>
           <button
-            onClick={() => {
-              const token = prompt('Enter your invite token:');
-              if (token) router.push(`/invite/${token}`);
+            onClick={async () => {
+              const token = await showPrompt('Enter your invite token:', {
+                title: 'Join Workspace',
+                primaryLabel: 'Join',
+                secondaryLabel: 'Cancel',
+                placeholder: 'Invite token',
+              });
+              if (token) router.push(`/invite/${token.trim()}`);
             }}
             className="text-primary hover:underline mt-1"
           >

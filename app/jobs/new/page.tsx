@@ -11,6 +11,7 @@ import { addToUploadQueue, uploadJobPhoto } from '@/lib/db/upload';
 import { DRAFT_DEBOUNCE_MS } from '@/lib/config';
 import { debounce } from '@/lib/utils';
 import { MoreIcon, OfflineIcon } from '@/components/icons';
+import useAppleDialog from '@/lib/use-apple-dialog';
 import type { z } from 'zod';
 
 type JobFormData = z.infer<typeof jobSchema>;
@@ -38,6 +39,7 @@ export default function NewJobPage() {
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { dialog, showAlert, showPrompt } = useAppleDialog();
 
   const {
     register,
@@ -194,12 +196,18 @@ export default function NewJobPage() {
     setIsMenuOpen(false);
     const validItems = getValidLineItems();
     if (validItems.length === 0) {
-      alert('Add at least one line item before saving as a template.');
+      await showAlert('Add at least one line item before saving as a template.');
       return;
     }
 
     const nameDefault = getValues('title') || 'New Template';
-    const name = prompt('Template name', nameDefault);
+    const name = await showPrompt('Template name', {
+      title: 'Save Template',
+      primaryLabel: 'Save',
+      secondaryLabel: 'Cancel',
+      defaultValue: nameDefault,
+      placeholder: 'Template name',
+    });
     if (!name) return;
 
     const payload = {
@@ -225,7 +233,7 @@ export default function NewJobPage() {
         if (!response.ok) throw new Error('Failed to create template');
         const result = await response.json();
         await createTemplate(result);
-        alert('Template saved.');
+        await showAlert('Template saved.');
       } else {
         const templateData = {
           id: crypto.randomUUID(),
@@ -239,11 +247,11 @@ export default function NewJobPage() {
           table: 'templates',
           data: templateData,
         });
-        alert('Template saved locally. It will sync when you are online.');
+        await showAlert('Template saved locally. It will sync when you are online.');
       }
     } catch (error) {
       console.error('Error saving template:', error);
-      alert('Failed to save template. Please try again.');
+      await showAlert('Failed to save template. Please try again.');
     }
   };
 
@@ -288,7 +296,7 @@ export default function NewJobPage() {
         await deleteJobDraft('new');
         const verifyResponse = await fetch(`/api/jobs/${createdJobId}`);
         if (!verifyResponse.ok) {
-          alert('Job saved, but it is not available yet. Please try again in a moment.');
+          await showAlert('Job saved, but it is not available yet. Please try again in a moment.');
           router.push('/');
           return;
         }
@@ -315,7 +323,7 @@ export default function NewJobPage() {
       }
     } catch (error) {
       console.error('Error creating job:', error);
-      alert('Failed to create job. Please try again.');
+      await showAlert('Failed to create job. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -323,6 +331,7 @@ export default function NewJobPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+      {dialog}
       <div className="max-w-2xl mx-auto p-4">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">New Job</h1>

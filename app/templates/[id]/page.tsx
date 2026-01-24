@@ -8,6 +8,7 @@ import { templateSchema } from '@/lib/validations';
 import { OfflineIcon } from '@/components/icons';
 import { getTemplate, updateTemplate, deleteTemplate, createTemplate } from '@/lib/db/idb';
 import { addToSyncQueue } from '@/lib/db/sync';
+import useAppleDialog from '@/lib/use-apple-dialog';
 import type { z } from 'zod';
 
 type TemplateFormData = z.infer<typeof templateSchema>;
@@ -37,6 +38,7 @@ export default function TemplateEditorPage() {
   const [isOnline, setIsOnline] = useState(true);
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { dialog, showAlert, showConfirm } = useAppleDialog();
 
   const {
     register,
@@ -167,7 +169,7 @@ export default function TemplateEditorPage() {
       }
     } catch (error) {
       console.error('Error saving template:', error);
-      alert('Failed to save template. Please try again.');
+      await showAlert('Failed to save template. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -175,7 +177,10 @@ export default function TemplateEditorPage() {
 
   const handleDelete = async () => {
     if (!templateId || isNew) return;
-    if (!confirm('Are you sure you want to delete this template?')) return;
+    if (!(await showConfirm('Are you sure you want to delete this template?', {
+      primaryLabel: 'Delete',
+      secondaryLabel: 'Cancel',
+    }))) return;
 
     try {
       if (isOnline) {
@@ -196,7 +201,7 @@ export default function TemplateEditorPage() {
       router.push('/templates');
     } catch (error) {
       console.error('Error deleting template:', error);
-      alert('Failed to delete template. Please try again.');
+      await showAlert('Failed to delete template. Please try again.');
     }
   };
 
@@ -221,6 +226,7 @@ export default function TemplateEditorPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+      {dialog}
       <div className="max-w-2xl mx-auto p-4">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

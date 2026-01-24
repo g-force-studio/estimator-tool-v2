@@ -40,7 +40,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const serviceClient = createServiceClient();
     let photos: Array<{ id: string; url: string; file_name: string }> = [];
 
-    const { data: jobFiles, error: filesError } = await supabase
+    const { data: jobFiles, error: filesError } = await serviceClient
       .from('job_files')
       .select('id, storage_path, created_at')
       .eq('job_id', params.id)
