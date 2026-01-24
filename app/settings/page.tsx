@@ -313,9 +313,10 @@ export default function SettingsPage() {
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to send invite');
-
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send invite');
+      }
       setInviteLink(data.inviteLink);
       setInviteEmail('');
       loadData();

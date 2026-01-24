@@ -53,7 +53,15 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505' || error.message.includes('workspace_invites_active_unique')) {
+        return NextResponse.json(
+          { error: 'An invite is already pending for this email.' },
+          { status: 409 }
+        );
+      }
+      throw error;
+    }
 
     const inviteLink = `${APP_BASE_URL}/invite/${token}`;
 
