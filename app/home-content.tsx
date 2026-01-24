@@ -100,8 +100,13 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
-      const response = await fetch(`${functionsBaseUrl}/pdf-link?job_id=${job.id}`, {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      const response = await fetch(`${functionsBaseUrl}/pdf-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ job_id: job.id }),
       });
       if (!response.ok) {
         throw new Error('Failed to fetch PDF link');
