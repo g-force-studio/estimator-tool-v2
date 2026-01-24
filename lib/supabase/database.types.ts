@@ -15,18 +15,24 @@ export interface Database {
           name: string
           created_at: string
           updated_at: string
+          subscription_status: 'active' | 'trialing' | 'inactive' | 'canceled' | 'past_due'
+          trial_ends_at: string | null
         }
         Insert: {
           id?: string
           name: string
           created_at?: string
           updated_at?: string
+          subscription_status?: 'active' | 'trialing' | 'inactive' | 'canceled' | 'past_due'
+          trial_ends_at?: string | null
         }
         Update: {
           id?: string
           name?: string
           created_at?: string
           updated_at?: string
+          subscription_status?: 'active' | 'trialing' | 'inactive' | 'canceled' | 'past_due'
+          trial_ends_at?: string | null
         }
         Relationships: []
       }
@@ -144,6 +150,42 @@ export interface Database {
           expires_at?: string
           accepted_at?: string | null
           accepted_by_user_id?: string | null
+        }
+        Relationships: []
+      }
+      trial_links: {
+        Row: {
+          id: string
+          workspace_id: string
+          token_hash: string
+          status: 'active' | 'redeemed' | 'expired' | 'revoked'
+          created_by_user_id: string
+          redeemed_by_user_id: string | null
+          created_at: string
+          expires_at: string
+          redeemed_at: string | null
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          token_hash: string
+          status?: 'active' | 'redeemed' | 'expired' | 'revoked'
+          created_by_user_id: string
+          redeemed_by_user_id?: string | null
+          created_at?: string
+          expires_at: string
+          redeemed_at?: string | null
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          token_hash?: string
+          status?: 'active' | 'redeemed' | 'expired' | 'revoked'
+          created_by_user_id?: string
+          redeemed_by_user_id?: string | null
+          created_at?: string
+          expires_at?: string
+          redeemed_at?: string | null
         }
         Relationships: []
       }

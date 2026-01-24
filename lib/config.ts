@@ -7,6 +7,13 @@ export const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:3000';
 
 export const INVITE_TOKEN_PEPPER = process.env.INVITE_TOKEN_PEPPER || '';
 
+export const TRIAL_TOKEN_PEPPER = process.env.TRIAL_TOKEN_PEPPER || '';
+
+export const TRIAL_LINK_TTL_DAYS = parseInt(
+  process.env.TRIAL_LINK_TTL_DAYS || '7',
+  10
+);
+
 export const DRAFT_DEBOUNCE_MS = 1000;
 
 export const CACHE_NAMES = {

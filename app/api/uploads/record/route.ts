@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { hasAccess } from '@/lib/access';
 import type { Database } from '@/lib/supabase/database.types';
 
 type RecordUploadRequest = {
@@ -26,6 +27,21 @@ export async function POST(request: Request) {
 
     if (!jobId || !storagePath) {
       return NextResponse.json({ error: 'Missing jobId or storagePath' }, { status: 400 });
+    }
+
+    const { data: job, error: jobError } = await supabase
+      .from('jobs')
+      .select('workspace_id')
+      .eq('id', jobId)
+      .single();
+
+    if (jobError || !job) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
+
+    const canAccess = await hasAccess(job.workspace_id);
+    if (!canAccess) {
+      return NextResponse.json({ error: 'Subscription inactive' }, { status: 402 });
     }
 
     const payload: Database['public']['Tables']['job_files']['Insert'] = {

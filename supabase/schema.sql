@@ -12,6 +12,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE workspaces (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
+  subscription_status TEXT NOT NULL DEFAULT 'inactive'
+    CHECK (subscription_status IN ('active', 'trialing', 'inactive', 'canceled', 'past_due')),
+  trial_ends_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -67,6 +70,27 @@ CREATE TABLE workspace_invites (
 CREATE UNIQUE INDEX workspace_invites_active_unique 
 ON workspace_invites(workspace_id, email) 
 WHERE accepted_at IS NULL AND expires_at > NOW();
+
+-- Trial links table
+CREATE TABLE trial_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  token_hash TEXT UNIQUE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'redeemed', 'expired', 'revoked')),
+  created_by_user_id UUID NOT NULL REFERENCES auth.users(id),
+  redeemed_by_user_id UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  redeemed_at TIMESTAMPTZ
+);
+
+CREATE INDEX trial_links_workspace_status_idx
+  ON trial_links(workspace_id, status);
+
+CREATE UNIQUE INDEX trial_links_active_unique
+  ON trial_links(workspace_id)
+  WHERE status = 'active';
 
 -- Jobs table
 CREATE TABLE jobs (
@@ -284,6 +308,7 @@ ALTER TABLE workspace_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_brand ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_invites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trial_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE job_inputs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_outputs ENABLE ROW LEVEL SECURITY;
@@ -365,6 +390,11 @@ CREATE POLICY "Admins can update workspace invites"
 
 CREATE POLICY "Admins can delete workspace invites"
   ON workspace_invites FOR DELETE
+  USING (is_admin_of(workspace_id));
+
+-- Trial links policies
+CREATE POLICY "Admins can view trial links"
+  ON trial_links FOR SELECT
   USING (is_admin_of(workspace_id));
 
 -- Jobs policies

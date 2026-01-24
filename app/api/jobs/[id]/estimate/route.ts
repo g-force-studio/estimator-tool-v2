@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { hasAccess } from '@/lib/access';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const DRAFT_MODEL = 'gpt-4.1-mini';
@@ -118,6 +119,11 @@ export async function POST(
       .single();
 
     if (jobError) throw jobError;
+
+    const canAccess = await hasAccess(job.workspace_id);
+    if (!canAccess) {
+      return NextResponse.json({ error: 'Subscription inactive' }, { status: 402 });
+    }
 
     // Mark pending (non-fatal)
     await safeJobUpdate(serviceClient, jobId, {

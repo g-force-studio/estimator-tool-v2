@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
 import { SIGNED_URL_TTL_SECONDS } from '@/lib/config';
+import { hasAccess } from '@/lib/access';
 
 export async function POST(request: Request) {
   try {
@@ -23,6 +24,11 @@ export async function POST(request: Request) {
 
     if (!member) {
       return NextResponse.json({ error: 'No workspace found' }, { status: 400 });
+    }
+
+    const canAccess = await hasAccess(member.workspace_id);
+    if (!canAccess) {
+      return NextResponse.json({ error: 'Subscription inactive' }, { status: 402 });
     }
 
     const formData = await request.formData();

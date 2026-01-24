@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { jobSchema, lineItemSchema } from '@/lib/validations';
+import { hasAccess } from '@/lib/access';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -48,6 +49,11 @@ export async function POST(request: Request) {
 
     if (!member) {
       return NextResponse.json({ error: 'No workspace found' }, { status: 400 });
+    }
+
+    const canAccess = await hasAccess(member.workspace_id);
+    if (!canAccess) {
+      return NextResponse.json({ error: 'Subscription inactive' }, { status: 402 });
     }
 
     const body = await request.json();
