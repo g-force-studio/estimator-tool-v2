@@ -1,30 +1,54 @@
 Current focus:
-- Resolve pdf-link request/auth mismatch and confirm Open PDF works in Netlify.
-- Decide whether pdf-link should require JWT + workspace membership checks.
+- Enable trial activation in production and reduce gating friction (402 Subscription inactive).
+- Provide UI affordances for inactive subscriptions/trials.
 
 What's working:
-- PDF generation creates storage_path in job_files for private bucket flow.
-- Job detail PDF open uses supabase.functions.invoke with POST body.
-- Home list PDF open posts JSON body to pdf-link and opens signed URL when returned.
+- Apple-style dialog system replaces alert/confirm/prompt across key pages.
+- Wait banners appear during job creation and AI/PDF generation delays.
+- Photo previews on job detail/edit are restored via service-client job_files fetch.
+- Invite errors now surface real server messages; duplicate invite returns friendly 409.
+- Trial system is implemented:
+  - workspaces.subscription_status + workspaces.trial_ends_at
+  - trial_links table
+  - POST /api/trials/create
+  - POST /api/trials/redeem
+  - /trial/[token] auto-redeems and redirects
+- API gating via hasAccess(workspaceId) is active on:
+  - POST /api/jobs
+  - POST /api/jobs/[id]/estimate
+  - POST /api/uploads, /api/uploads/signed, /api/uploads/record
 
 What's broken / pending:
-- pdf-link currently has no JWT or workspace membership validation.
-- Verbose PDF link logs remain and may leak sensitive metadata.
+- Supabase CLI db push fails due to duplicate migration version prefixes; manual SQL was used for trials migration.
+- Production will return 402 until a trial is redeemed or subscription_status is set to active.
+- pdf-link edge function still lacks JWT/workspace-membership enforcement and has verbose logs.
+- Service client debug logs remain in lib/supabase/service.ts.
 
 Latest files touched:
-- app/jobs/[id]/page.tsx
-- app/home-content.tsx
-- supabase/functions/pdf-link/index.ts
-- NOTES.md
-- code_state.txt
+- app/api/trials/create/route.ts
+- app/api/trials/redeem/route.ts
+- app/trial/[token]/page.tsx
+- lib/access.ts
+- app/api/jobs/route.ts
+- app/api/jobs/[id]/estimate/route.ts
+- app/api/uploads/route.ts
+- app/api/uploads/signed/route.ts
+- app/api/uploads/record/route.ts
+- app/api/jobs/[id]/route.ts
+- app/settings/page.tsx
+- components/apple-dialog.tsx
+- lib/use-apple-dialog.tsx
+- supabase/migrations/20260124_add_trials.sql
 
 Commands to run locally:
-- supabase functions deploy pdf-link
+- Ensure env vars are set, then restart dev server
+- Create trial link (logged in as admin/owner):
+  - fetch('/api/trials/create', { method: 'POST' }).then(r => r.json()).then(console.log)
 
 Last successful end-to-end test:
-- PDF generation succeeded; Open PDF requires re-test after POST alignment.
+- Trial migration applied manually in Supabase; trial link creation requires TRIAL_TOKEN_PEPPER and auth.
 
 Next 3 concrete steps:
-1) Deploy pdf-link Edge Function and retest Open PDF from job detail and home list.
-2) Decide on JWT + membership enforcement for pdf-link and implement if required.
-3) Remove or gate verbose PDF logs after verification.
+1) Set TRIAL_TOKEN_PEPPER and INVITE_TOKEN_PEPPER in Netlify and redeploy.
+2) Generate and redeem a trial link for the production workspace.
+3) Add UI gating/banners for inactive subscriptions and clean up debug logs.

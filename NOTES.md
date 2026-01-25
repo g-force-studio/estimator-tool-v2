@@ -390,3 +390,28 @@ Use this file to capture decisions, changes, and open questions after each worki
   - Next actions:
     - [ ] Decide whether pdf-link should require JWT + membership checks again
     - [ ] Re-test Open PDF end-to-end after deploy to confirm 401s are resolved
+
+- Date/Time (2026-01-25 07:56), Session Goal: Stabilize UX dialogs, restore photo previews, and add trial links + gating
+  - What changed:
+    - Replaced native alert/confirm/prompt with Apple-style dialogs and added prompt input support
+    - Added wait banners during job creation and AI/PDF generation delays
+    - Restored job photo previews by fetching job_files with the service client in /api/jobs/[id]
+    - Surfaced real invite errors in Settings and added a friendly duplicate-invite message in /api/invites
+    - Added trial support: workspaces subscription_status/trial_ends_at, trial_links table, trial create/redeem API routes, /trial/[token] auto-redeem page
+    - Added hasAccess(workspaceId) gating to high-cost routes: /api/jobs (POST), /api/jobs/[id]/estimate, and uploads routes
+    - Supabase CLI migration push is blocked by duplicate migration version prefixes; ran 20260124_add_trials.sql manually in Supabase
+  - Decisions made:
+    - Use Next.js API routes (not Netlify Functions) for trials
+    - Per-workspace trials with only one active trial at a time; 30-day trial length
+    - Gate API first (estimate, job create, uploads) and add UI gating later
+    - Auto-redeem trial links on /trial/[token]
+  - Open questions / risks:
+    - Production requires TRIAL_TOKEN_PEPPER (and consistent INVITE_TOKEN_PEPPER); redeploy needed after env updates
+    - Migration history remains inconsistent due to duplicate version prefixes; consider renaming migrations + repair
+    - pdf-link function still lacks JWT/membership enforcement and contains verbose logging
+    - Service client debug logging remains in lib/supabase/service.ts
+  - Next actions:
+    - [ ] Set TRIAL_TOKEN_PEPPER and INVITE_TOKEN_PEPPER in Netlify and redeploy
+    - [ ] Generate a trial link via POST /api/trials/create and redeem it for the target workspace
+    - [ ] Add UI gating/banners for inactive subscriptions (e.g., hide/disable Submit/New Job)
+    - [ ] Decide whether to restore pdf-link JWT + workspace membership enforcement and remove debug logs
