@@ -122,9 +122,6 @@ export default function JobDetailPage() {
   const isMountedRef = useRef(true);
   const [aiOutput, setAiOutput] = useState<AiOutput | null>(null);
   const { dialog, showAlert, showConfirm, showPrompt } = useAppleDialog();
-  const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
-    : '';
 
   const {
     register,
@@ -523,27 +520,21 @@ export default function JobDetailPage() {
     try {
       const supabase = createClient();
 
-      console.log('[PDF] Invoking pdf-link function for job:', jobId);
-
       const { data, error } = await supabase.functions.invoke('pdf-link', {
         body: { job_id: jobId },
       });
 
-      console.log('[PDF] Response:', { data, error });
-
       if (error) {
-        console.error('[PDF] Error:', error);
         throw new Error(error.message || 'Failed to fetch PDF link');
       }
 
       if (data?.pdf_url) {
-        console.log('[PDF] Opening URL:', data.pdf_url);
         window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
       } else {
         throw new Error('No PDF URL returned');
       }
     } catch (error) {
-      console.error('[PDF] Failed to open PDF:', error);
+      console.error('Failed to open PDF:', error);
       await showAlert('Failed to open PDF. Please try again.');
     }
   };
