@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import {
   supabaseAdmin,
+  createSupabaseClient,
   ESTIMATES_BUCKET,
 } from '../_shared/supabase.ts';
 
@@ -31,7 +32,8 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '').trim();
-    const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+    const supabaseUser = createSupabaseClient(authHeader);
+    const { data: userData, error: userError } = await supabaseUser.auth.getUser(token);
     if (userError || !userData.user) {
       return new Response(JSON.stringify({ error: 'Invalid JWT' }), {
         status: 401,
