@@ -91,19 +91,9 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       }
 
       const supabase = createClient();
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-
-      if (!accessToken) {
-        await showAlert('Your session expired. Please sign in again.');
-        return;
-      }
 
       const { data, error } = await supabase.functions.invoke('pdf-link', {
         body: { job_id: job.id },
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
       });
 
       if (error) {
