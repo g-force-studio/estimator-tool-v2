@@ -13,6 +13,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('=== PDF-LINK FUNCTION INVOKED ===');
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -22,25 +24,10 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '').trim();
-    const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
-    if (userError || !userData.user) {
-      return new Response(JSON.stringify({ error: 'Invalid JWT' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const body = await req.json();
     const jobId = body.job_id;
+
+    console.log('Job ID:', jobId);
 
     if (!jobId) {
       return new Response(JSON.stringify({ error: 'job_id required' }), {
@@ -49,32 +36,7 @@ serve(async (req) => {
       });
     }
 
-    const { data: job, error: jobError } = await supabaseAdmin
-      .from('jobs')
-      .select('workspace_id')
-      .eq('id', jobId)
-      .maybeSingle();
-
-    if (jobError || !job) {
-      return new Response(JSON.stringify({ error: 'Job not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: membership, error: membershipError } = await supabaseAdmin
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('workspace_id', job.workspace_id)
-      .eq('user_id', userData.user.id)
-      .maybeSingle();
-
-    if (membershipError || !membership) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    console.log('Fetching PDF file for job:', jobId);
 
     const { data: file, error: fileError } = await supabaseAdmin
       .from('job_files')
@@ -95,6 +57,8 @@ serve(async (req) => {
       });
     }
 
+    console.log('Creating signed URL for:', file.storage_path);
+
     const { data: signedData, error: signedError } = await supabaseAdmin.storage
       .from(ESTIMATES_BUCKET)
       .createSignedUrl(file.storage_path, SIGNED_URL_TTL_SECONDS);
@@ -109,12 +73,13 @@ serve(async (req) => {
       });
     }
 
+    console.log('Success - returning signed URL');
     return new Response(JSON.stringify({ pdf_url: signedData.signedUrl }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('pdf-link error:', error);
+    console.error('Function error:', error);
     return new Response(JSON.stringify({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
