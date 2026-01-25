@@ -519,9 +519,19 @@ export default function JobDetailPage() {
   const handleOpenPdf = async () => {
     try {
       const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        await showAlert('Your session expired. Please sign in again.');
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke('pdf-link', {
         body: { job_id: jobId },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
 
       if (error) {

@@ -102,11 +102,16 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
+      if (!accessToken) {
+        await showAlert('Your session expired. Please sign in again.');
+        return;
+      }
+
       const response = await fetch(`${functionsBaseUrl}/pdf-link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({ job_id: job.id }),
       });
