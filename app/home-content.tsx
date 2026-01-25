@@ -42,9 +42,6 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(true);
   const { dialog, showAlert } = useAppleDialog();
-  const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
-    : '';
 
   useEffect(() => {
     loadJobs();
@@ -93,11 +90,6 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
         return;
       }
 
-      if (!functionsBaseUrl) {
-        await showAlert('PDF link is unavailable. Missing Supabase URL.');
-        return;
-      }
-
       const supabase = createClient();
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
@@ -107,27 +99,21 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
         return;
       }
 
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (!anonKey) {
-        await showAlert('Configuration error. Please contact support.');
-        return;
+      const { data, error } = await supabase.functions.invoke('pdf-link', {
+        body: { job_id: job.id },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch PDF link');
       }
 
-      const response = await fetch(`${functionsBaseUrl}/pdf-link`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': anonKey,
-        },
-        body: JSON.stringify({ job_id: job.id }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch PDF link');
-      }
-      const data = await response.json();
-      if (data.pdf_url) {
+      if (data?.pdf_url) {
         window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
+      } else {
+        throw new Error('No PDF URL returned');
       }
     } catch (error) {
       console.error('Failed to open PDF:', error);
