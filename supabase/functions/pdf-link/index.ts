@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import {
   supabaseAdmin,
+  createSupabaseClient,
   ESTIMATES_BUCKET,
 } from '../_shared/supabase.ts';
 
@@ -24,6 +25,27 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const supabase = createSupabaseClient(authHeader);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error('Auth error:', authError?.message);
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Authenticated user:', user.id);
+
     const body = await req.json();
     const jobId = body.job_id;
 
@@ -32,6 +54,35 @@ serve(async (req) => {
     if (!jobId) {
       return new Response(JSON.stringify({ error: 'job_id required' }), {
         status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: job, error: jobError } = await supabaseAdmin
+      .from('jobs')
+      .select('workspace_id')
+      .eq('id', jobId)
+      .single();
+
+    if (jobError || !job) {
+      console.error('Job fetch error:', jobError?.message);
+      return new Response(JSON.stringify({ error: 'Job not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: membership, error: membershipError } = await supabaseAdmin
+      .from('workspace_members')
+      .select('user_id')
+      .eq('workspace_id', job.workspace_id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (membershipError || !membership) {
+      console.error('Membership check failed:', membershipError?.message);
+      return new Response(JSON.stringify({ error: 'Access denied' }), {
+        status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
