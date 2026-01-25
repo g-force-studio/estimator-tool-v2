@@ -107,11 +107,18 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
         return;
       }
 
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!anonKey) {
+        await showAlert('Configuration error. Please contact support.');
+        return;
+      }
+
       const response = await fetch(`${functionsBaseUrl}/pdf-link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': anonKey,
         },
         body: JSON.stringify({ job_id: job.id }),
       });
