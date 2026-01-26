@@ -368,8 +368,14 @@ export default function NewJobPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {isSubmitting && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-100">
-              Sit tight, we are creating the job for you.
+            <div className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 shadow-sm dark:border-blue-500/60 dark:bg-blue-900/30 dark:text-blue-100">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded-full border-2 border-blue-600 border-t-transparent animate-spin dark:border-blue-300" />
+                <span className="font-medium">Creating job…</span>
+              </div>
+              <p className="mt-1 text-xs text-blue-700/90 dark:text-blue-200/90">
+                This can take a few seconds. Please keep this page open.
+              </p>
             </div>
           )}
           <div>
