@@ -369,9 +369,26 @@ export async function POST(
       }
     });
 
+    const findUnitPrice = (key: string) => {
+      const direct = priceLookup.get(key);
+      if (typeof direct === 'number') return direct;
+
+      let bestMatch: { key: string; price: number } | null = null;
+      for (const [priceKey, price] of priceLookup.entries()) {
+        if (!priceKey) continue;
+        if (key.includes(priceKey) || priceKey.includes(key)) {
+          if (!bestMatch || priceKey.length > bestMatch.key.length) {
+            bestMatch = { key: priceKey, price };
+          }
+        }
+      }
+
+      return bestMatch?.price;
+    };
+
     const pricedMaterials = materials.map((item) => {
       const key = normalizeKey(item.item);
-      const unitPrice = key ? priceLookup.get(key) : undefined;
+      const unitPrice = key ? findUnitPrice(key) : undefined;
       return {
         ...item,
         cost: Number.isFinite(unitPrice) ? Number(unitPrice) : 0,

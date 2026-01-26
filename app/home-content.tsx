@@ -89,14 +89,12 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
     event.preventDefault();
     event.stopPropagation();
     const isIos = isIosBrowser();
-    const popup = isIos ? null : window.open('', '_blank', 'noopener,noreferrer');
+    const popup = null;
 
     try {
       if (job.pdf_url) {
         if (isIos) {
           window.location.href = job.pdf_url;
-        } else if (popup) {
-          popup.location.href = job.pdf_url;
         } else {
           window.open(job.pdf_url, '_blank', 'noopener,noreferrer');
         }
@@ -116,8 +114,6 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       if (data?.pdf_url) {
         if (isIos) {
           window.location.href = data.pdf_url;
-        } else if (popup) {
-          popup.location.href = data.pdf_url;
         } else {
           window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
         }
@@ -126,9 +122,6 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       }
     } catch (error) {
       console.error('Failed to open PDF:', error);
-      if (popup) {
-        popup.close();
-      }
       await showAlert('Failed to open PDF. Please try again.');
     }
   };

@@ -537,16 +537,12 @@ export default function JobDetailPage() {
 
   const handleOpenPdf = async () => {
     const isIos = isIosBrowser();
-    const popup = isIos ? null : window.open('', '_blank', 'noopener,noreferrer');
     try {
       const supabase = createClient();
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
       if (!accessToken) {
-        if (popup) {
-          popup.close();
-        }
         await showAlert('Your session expired. Please sign in again.');
         return;
       }
@@ -565,8 +561,6 @@ export default function JobDetailPage() {
       if (data?.pdf_url) {
         if (isIos) {
           window.location.href = data.pdf_url;
-        } else if (popup) {
-          popup.location.href = data.pdf_url;
         } else {
           window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
         }
@@ -575,9 +569,6 @@ export default function JobDetailPage() {
       }
     } catch (error) {
       console.error('Failed to open PDF:', error);
-      if (popup) {
-        popup.close();
-      }
       await showAlert('Failed to open PDF. Please try again.');
     }
   };
@@ -737,6 +728,13 @@ export default function JobDetailPage() {
                 Created {formatDateTime(job.created_at)}
               </p>
             </div>
+
+            {job.status === 'draft' && job.description_md && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</h3>
+                <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{job.description_md}</p>
+              </div>
+            )}
 
             {lineItems.length > 0 && (
               <div>
