@@ -12,6 +12,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE workspaces (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
+  trade TEXT NOT NULL DEFAULT 'general_contractor'
+    CHECK (trade IN ('plumbing', 'electrical', 'hvac', 'general_contractor')),
   subscription_status TEXT NOT NULL DEFAULT 'inactive'
     CHECK (subscription_status IN ('active', 'trialing', 'inactive', 'canceled', 'past_due')),
   trial_ends_at TIMESTAMPTZ,
@@ -203,14 +205,36 @@ CREATE INDEX packages_slug_idx ON packages(public_slug);
 CREATE TABLE ai_reference_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  trade TEXT NOT NULL CHECK (trade IN ('plumbing', 'electrical', 'hvac', 'general_contractor')),
   name TEXT NOT NULL,
-  config_json JSONB NOT NULL,
-  is_active BOOLEAN NOT NULL DEFAULT FALSE,
+  system_prompt TEXT NOT NULL,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX ai_reference_configs_workspace_id_idx ON ai_reference_configs(workspace_id);
+CREATE INDEX ai_reference_configs_workspace_trade_idx ON ai_reference_configs(workspace_id, trade);
+CREATE UNIQUE INDEX ai_reference_configs_one_default_per_workspace
+  ON ai_reference_configs(workspace_id)
+  WHERE is_default = TRUE;
+
+ALTER TABLE workspaces
+  ADD COLUMN default_ai_reference_config_id UUID REFERENCES ai_reference_configs(id);
+
+-- Prompt templates table
+CREATE TABLE prompt_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  trade TEXT NOT NULL CHECK (trade IN ('plumbing', 'electrical', 'hvac', 'general_contractor')),
+  name TEXT NOT NULL,
+  system_prompt TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX prompt_templates_trade_name_version_unique
+  ON prompt_templates(trade, name, version);
 
 -- Template catalog table
 CREATE TABLE template_catalog (
@@ -317,6 +341,7 @@ ALTER TABLE job_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_reference_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE prompt_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE template_catalog ENABLE ROW LEVEL SECURITY;
 
 -- Workspaces policies
@@ -545,21 +570,22 @@ CREATE POLICY "Members can delete workspace packages"
   USING (workspace_id = current_workspace_id());
 
 -- AI reference configs policies
-CREATE POLICY "Members can view workspace AI configs"
+CREATE POLICY "Members can view AI reference configs"
   ON ai_reference_configs FOR SELECT
-  USING (workspace_id = current_workspace_id());
+  USING (is_member_of(workspace_id));
 
-CREATE POLICY "Admins can create AI configs"
+CREATE POLICY "Service role can insert AI reference configs"
   ON ai_reference_configs FOR INSERT
-  WITH CHECK (is_admin_of(workspace_id));
+  WITH CHECK (auth.role() = 'service_role');
 
-CREATE POLICY "Admins can update AI configs"
+CREATE POLICY "Admins can update AI reference configs"
   ON ai_reference_configs FOR UPDATE
   USING (is_admin_of(workspace_id));
 
-CREATE POLICY "Admins can delete AI configs"
-  ON ai_reference_configs FOR DELETE
-  USING (is_admin_of(workspace_id));
+-- Prompt templates policies
+CREATE POLICY "Authenticated users can view prompt templates"
+  ON prompt_templates FOR SELECT
+  USING (auth.role() = 'authenticated');
 
 -- Template catalog policies
 CREATE POLICY "Members can view workspace template catalog"

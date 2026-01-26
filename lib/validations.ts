@@ -4,6 +4,10 @@ export const workspaceSchema = z.object({
   name: z.string().min(1, 'Workspace name is required').max(100),
 });
 
+export const workspaceCreateSchema = workspaceSchema.extend({
+  trade: z.enum(['plumbing', 'electrical', 'hvac', 'general_contractor']),
+});
+
 export const workspaceBrandSchema = z.object({
   brand_name: z.string().min(1, 'Brand name is required').max(100),
   accent_color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid color format').optional(),
@@ -102,6 +106,7 @@ export const packageSchema = z.object({
 });
 
 export type WorkspaceInput = z.infer<typeof workspaceSchema>;
+export type WorkspaceCreateInput = z.infer<typeof workspaceCreateSchema>;
 export type WorkspaceBrandInput = z.infer<typeof workspaceBrandSchema>;
 export type WorkspaceSettingsInput = z.infer<typeof workspaceSettingsSchema>;
 export type InviteInput = z.infer<typeof inviteSchema>;

@@ -6,6 +6,7 @@ import useAppleDialog from '@/lib/use-apple-dialog';
 
 export default function OnboardingPage() {
   const [workspaceName, setWorkspaceName] = useState('');
+  const [trade, setTrade] = useState<'plumbing' | 'electrical' | 'hvac' | 'general_contractor'>('plumbing');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function OnboardingPage() {
       const response = await fetch('/api/workspaces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: workspaceName }),
+        body: JSON.stringify({ name: workspaceName, trade }),
       });
 
       if (!response.ok) {
@@ -64,6 +65,26 @@ export default function OnboardingPage() {
             />
             <p className="mt-2 text-sm text-muted-foreground">
               This is your company or team name
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="trade" className="block text-sm font-medium mb-2">
+              Trade
+            </label>
+            <select
+              id="trade"
+              value={trade}
+              onChange={(event) => setTrade(event.target.value as 'plumbing' | 'electrical' | 'hvac' | 'general_contractor')}
+              className="w-full px-4 py-3 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background"
+            >
+              <option value="plumbing">Plumbing</option>
+              <option value="electrical">Electrical</option>
+              <option value="hvac">HVAC</option>
+              <option value="general_contractor">General Contractor</option>
+            </select>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This sets your default AI estimating prompt.
             </p>
           </div>
 

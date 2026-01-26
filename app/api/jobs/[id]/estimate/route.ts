@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { hasAccess } from '@/lib/access';
+import { getWorkspacePrompt } from '@/lib/prompts';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const DRAFT_MODEL = 'gpt-4.1-mini';
@@ -71,6 +72,46 @@ const errToString = (e: unknown) => {
     return String(e);
   }
 };
+
+const fallbackSystemPrompt = `
+You are a residential estimator. Output strict JSON only.
+
+GOAL
+- Produce a draft estimate from the provided job details, Scope Summary, Job Summary, and photos.
+- Identify required materials and labor realistically.
+
+PRICING RULES (STRICT)
+- Do NOT invent material prices.
+- Set ALL "estimate.materials[].cost" values to 0.
+- The server will overwrite material pricing using pricing_materials for the workspace and trade.
+- If you are unsure about an item name, still include it and add a note in estimate.jobNotes: "MISSING PRICE: <item>".
+
+OUTPUT FORMAT (JSON ONLY)
+Return exactly one JSON object with this shape and no extra keys:
+{
+  "client": {
+    "customerName": string,
+    "customerEmail": string,
+    "address": string,
+    "phone": string,
+    "preferredDate": string
+  },
+  "estimate": {
+    "estimateNumber": string,
+    "project": string,
+    "jobDescription": string,
+    "jobNotes": string,
+    "labor": [{ "task": string, "hours": number }],
+    "materials": [{ "item": string, "qty": number, "cost": number }]
+  },
+  "image_analysis": [{ "image_url": string, "observations": string }]
+}
+
+RULES
+- jobDescription must be a concise Scope Summary.
+- jobNotes must include a short Job Summary followed by key assumptions and missing information.
+- materials[].cost must always be 0.
+`;
 
 
  // IMPORTANT: uses serviceClient to bypass RLS and avoid “schema cache” updates
@@ -209,66 +250,15 @@ export async function POST(
         quantity: item.content_json?.quantity ?? 0,
       }));
 
-const systemPrompt = `
-You are a residential PLUMBING estimator (not a general remodel estimator).
-
-GOAL
-- Produce a plumbing-only estimate from the provided job details and photos.
-- Identify required plumbing materials and labor realistically.
-- DO NOT invent material prices. Pricing will be applied by the app from Supabase pricing_materials.
-
-PRICING RULES (STRICT)
-- You DO NOT have access to prices.
-- Set ALL "materials[].cost" values to 0.
-- "materials[].item" must be the best-match name intended to map to pricing_materials.item_key or pricing_materials.aliases.
-- If you are unsure about an item name, still include it and add a note in jobNotes: "MISSING PRICE: <item>".
-
-SCOPE RULES
-Include plumbing scope only, such as:
-- Fixture remove/replace (faucets, toilets, shower valves/trim, tub spouts, showerheads)
-- Supply lines, stops, angle valves, p-traps, drain assemblies
-- Shower valve rough-in, cartridge/trim, diverter, mixing valve changes
-- Testing, leak checks, caulk/silicone at plumbing penetrations
-- Disposal of plumbing debris (plumbing only)
-
-Exclude / do NOT estimate:
-- Tile, backer board, waterproofing membranes, grout, thinset
-- Drywall, framing, paint
-- Cabinets/vanity carpentry (unless explicitly “connect plumbing only”)
-- Electrical
-
-LABOR RULES
-- Output labor tasks with realistic hours for a 1–2 person residential service crew.
-- Do not inflate hours. If uncertainty exists, pick a reasonable midpoint and state assumptions.
-
-REQUIRED WRITING OUTPUTS
-- estimate.jobDescription MUST be a "Scope Summary" created from the provided job details and photo observations.
-  Keep it concise and plumbing-only.
-- estimate.jobNotes MUST include a "Job Summary" (1 short paragraph) plus assumptions/exclusions and missing-price notes.
-
-OUTPUT
-Return ONLY valid JSON with this exact shape (no markdown, no commentary):
-
-{
-  "client": { "customerName": "", "customerEmail": "", "address": "", "phone": "", "preferredDate": "" },
-  "estimate": {
-    "estimateNumber": "",
-    "project": "",
-    "jobDescription": "",
-    "jobNotes": "",
-    "formattingStatus": "success",
-    "labor": [ { "task": "", "hours": 0 } ],
-    "materials": [ { "item": "", "qty": 0, "cost": 0 } ],
-    "image_analysis": [ { "image_url": "", "observations": "" } ]
-  }
-}
-`;
+    const promptResult = await getWorkspacePrompt(job.workspace_id, 'general_contractor');
+    const systemPrompt = promptResult.systemPrompt ?? fallbackSystemPrompt;
 
     const userText = [
       `Job title: ${job.title}`,
       `Client name: ${job.client_name || ''}`,
       `Due date: ${job.due_date || ''}`,
-      `Job description: ${job.description_md || ''}`,
+      `Scope Summary (source): ${job.description_md || ''}`,
+      `Job Summary (source): ${job.description_md || ''}`,
       `Existing line items: ${JSON.stringify(lineItems)}`,
       'Use the photos to identify fixtures/materials and include key observations in image_analysis.',
     ].join('\n');
@@ -336,16 +326,50 @@ Return ONLY valid JSON with this exact shape (no markdown, no commentary):
       ? parsed.estimate!.materials!.map((item) => ({
           item: String(item?.item || '').trim(),
           qty: Number(item?.qty ?? 0),
-          cost: Number(item?.cost ?? 0),
+          cost: 0,
         }))
       : [];
+
+    const { data: pricingMaterials, error: pricingError } = await serviceClient
+      .from('pricing_materials')
+      .select('item_key, unit_price, aliases')
+      .eq('workspace_id', job.workspace_id)
+      .eq('trade', promptResult.trade);
+
+    if (pricingError) {
+      console.error('Pricing materials fetch error:', pricingError);
+    }
+
+    const priceLookup = new Map<string, number>();
+    const normalizeKey = (value: string) => value.toLowerCase().trim();
+    (pricingMaterials || []).forEach((material) => {
+      const price = Number(material.unit_price ?? 0);
+      const baseKey = normalizeKey(material.item_key);
+      if (baseKey) priceLookup.set(baseKey, price);
+      if (typeof material.aliases === 'string') {
+        material.aliases
+          .split(',')
+          .map((alias) => normalizeKey(alias))
+          .filter(Boolean)
+          .forEach((alias) => priceLookup.set(alias, price));
+      }
+    });
+
+    const pricedMaterials = materials.map((item) => {
+      const key = normalizeKey(item.item);
+      const unitPrice = key ? priceLookup.get(key) : undefined;
+      return {
+        ...item,
+        cost: Number.isFinite(unitPrice) ? Number(unitPrice) : 0,
+      };
+    });
 
     const normalizedLabor = labor.map((item) => {
       const total = roundToHalf(item.hours * hourlyRate);
       return { task: item.task, hours: item.hours, rate: hourlyRate, total };
     });
 
-    const materialsTotal = materials.reduce((sum, item) => sum + item.qty * item.cost, 0);
+    const materialsTotal = pricedMaterials.reduce((sum, item) => sum + item.qty * item.cost, 0);
     const laborTotal = normalizedLabor.reduce((sum, item) => sum + item.total, 0);
     const subtotal = roundToHalf(materialsTotal + laborTotal);
     const markupAmount = roundToHalf((subtotal * markupPercent) / 100);
@@ -367,7 +391,7 @@ Return ONLY valid JSON with this exact shape (no markdown, no commentary):
         jobNotes: parsed?.estimate?.jobNotes || '',
         formattingStatus: 'success',
         labor: normalizedLabor,
-        materials,
+        materials: pricedMaterials,
         subtotal,
         tax,
         total,
@@ -380,6 +404,9 @@ Return ONLY valid JSON with this exact shape (no markdown, no commentary):
         markup_percent: markupPercent,
         hourly_rate: hourlyRate,
         model: DRAFT_MODEL,
+        prompt_id: promptResult.id,
+        prompt_source: promptResult.source,
+        prompt_trade: promptResult.trade,
         generated_at: new Date().toISOString(),
       },
     };

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
-import { workspaceSchema } from '@/lib/validations';
+import { workspaceCreateSchema, workspaceSchema } from '@/lib/validations';
 import { NextResponse } from 'next/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export async function POST(request: Request) {
   try {
@@ -27,11 +28,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const validated = workspaceSchema.parse(body);
+    const validated = workspaceCreateSchema.parse(body);
 
     const { data: workspace, error: workspaceError } = await supabase
       .from('workspaces')
-      .insert({ name: validated.name })
+      .insert({ name: validated.name, trade: validated.trade })
       .select()
       .single();
 
@@ -57,6 +58,42 @@ export async function POST(request: Request) {
     });
 
     if (settingsError) throw settingsError;
+
+    const serviceClient = createServiceClient();
+    const { data: template, error: templateError } = await serviceClient
+      .from('prompt_templates')
+      .select('id, trade, name, system_prompt')
+      .eq('trade', validated.trade)
+      .eq('active', true)
+      .order('version', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (templateError) throw templateError;
+
+    if (template) {
+      const { data: config, error: configError } = await serviceClient
+        .from('ai_reference_configs')
+        .insert({
+          workspace_id: workspace.id,
+          trade: template.trade,
+          name: template.name,
+          system_prompt: template.system_prompt,
+          is_default: true,
+        })
+        .select('id')
+        .single();
+
+      if (configError) throw configError;
+
+      const { error: updateError } = await serviceClient
+        .from('workspaces')
+        .update({ default_ai_reference_config_id: config.id })
+        .eq('id', workspace.id);
+
+      if (updateError) throw updateError;
+    }
 
     return NextResponse.json(workspace);
   } catch (error: unknown) {
@@ -137,75 +174,3 @@ export async function PUT(request: Request) {
 }
 
 
-
-// import { createClient } from '@/lib/supabase/server';
-// import { workspaceSchema } from '@/lib/validations';
-// import { NextResponse } from 'next/server';
-
-// export async function POST(request: Request) {
-//   try {
-//     const supabase = await createClient();
-//     const {
-//       data: { user },
-//     } = await supabase.auth.getUser();
-
-//     if (!user) {
-//       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-//     }
-
-//     const body = await request.json();
-//     const validated = workspaceSchema.parse(body);
-
-//     console.log('--- DEBUG: Starting Workspace Creation ---');
-
-//     // 1. Try inserting the workspace
-//     const { data: workspace, error: workspaceError } = await supabase
-//       .from('workspaces')
-//       .insert({ name: validated.name })
-//       .select()
-//       .single();
-
-//     if (workspaceError) {
-//       console.error('DEBUG ERROR [workspaces table]:', workspaceError);
-//       return NextResponse.json({ error: `Workspaces RLS Error: ${workspaceError.message}` }, { status: 500 });
-//     }
-
-//     console.log('DEBUG SUCCESS: Workspace created with ID:', workspace.id);
-
-//     // 2. Try inserting the member
-//     const { error: memberError } = await supabase.from('workspace_members').insert({
-//       workspace_id: workspace.id,
-//       user_id: user.id,
-//       role: 'owner',
-//     });
-
-//     if (memberError) {
-//       console.error('DEBUG ERROR [workspace_members table]:', memberError);
-//       return NextResponse.json({ error: `Members RLS Error: ${memberError.message}` }, { status: 500 });
-//     }
-
-//     console.log('DEBUG SUCCESS: Member added');
-
-//     // 3. Try inserting the brand
-//     const { error: brandError } = await supabase.from('workspace_brand').insert({
-//       workspace_id: workspace.id,
-//       brand_name: validated.name,
-//     });
-
-//     if (brandError) {
-//       console.error('DEBUG ERROR [workspace_brand table]:', brandError);
-//       return NextResponse.json({ error: `Brand RLS Error: ${brandError.message}` }, { status: 500 });
-//     }
-
-//     console.log('DEBUG SUCCESS: Brand added');
-
-//     return NextResponse.json(workspace);
-//   } catch (error: any) {
-//     console.error('DEBUG ERROR [Unexpected]:', error);
-//     return NextResponse.json(
-//       { error: error.message || 'Failed to create workspace' },
-//       { status: 500 }
-//     );
-//   }
-//   console.log('DEBUG SUPABASE URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-// }

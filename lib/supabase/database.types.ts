@@ -15,6 +15,8 @@ export interface Database {
           name: string
           created_at: string
           updated_at: string
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          default_ai_reference_config_id: string | null
           subscription_status: 'active' | 'trialing' | 'inactive' | 'canceled' | 'past_due'
           trial_ends_at: string | null
         }
@@ -23,6 +25,8 @@ export interface Database {
           name: string
           created_at?: string
           updated_at?: string
+          trade?: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          default_ai_reference_config_id?: string | null
           subscription_status?: 'active' | 'trialing' | 'inactive' | 'canceled' | 'past_due'
           trial_ends_at?: string | null
         }
@@ -31,6 +35,8 @@ export interface Database {
           name?: string
           created_at?: string
           updated_at?: string
+          trade?: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          default_ai_reference_config_id?: string | null
           subscription_status?: 'active' | 'trialing' | 'inactive' | 'canceled' | 'past_due'
           trial_ends_at?: string | null
         }
@@ -494,29 +500,62 @@ export interface Database {
         Row: {
           id: string
           workspace_id: string
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
           name: string
-          config_json: Json
-          is_active: boolean
+          system_prompt: string
+          is_default: boolean
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           workspace_id: string
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
           name: string
-          config_json: Json
-          is_active?: boolean
+          system_prompt: string
+          is_default?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           workspace_id?: string
+          trade?: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
           name?: string
-          config_json?: Json
-          is_active?: boolean
+          system_prompt?: string
+          is_default?: boolean
           created_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      prompt_templates: {
+        Row: {
+          id: string
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          name: string
+          system_prompt: string
+          active: boolean
+          version: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          name: string
+          system_prompt: string
+          active?: boolean
+          version?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          trade?: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          name?: string
+          system_prompt?: string
+          active?: boolean
+          version?: number
+          created_at?: string
         }
         Relationships: []
       }

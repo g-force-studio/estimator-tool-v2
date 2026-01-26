@@ -415,3 +415,21 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Generate a trial link via POST /api/trials/create and redeem it for the target workspace
     - [ ] Add UI gating/banners for inactive subscriptions (e.g., hide/disable Submit/New Job)
     - [ ] Decide whether to restore pdf-link JWT + workspace membership enforcement and remove debug logs
+- Date/Time (2026-01-26 05:56), Session Goal: Add workspace-scoped prompt templates + default prompt loading
+  - What changed:
+    - Added migration to create prompt_templates and ai_reference_configs, add workspaces.trade + default_ai_reference_config_id, seed prompts, and add backfill function
+    - Updated onboarding to select trade and workspace creation to seed default ai_reference_configs from templates
+    - Added getWorkspacePrompt helper and updated estimate route to load workspace prompt with fallback chain and include Scope Summary/Job Summary inputs
+    - Enforced server-side pricing_materials override for material costs and stored prompt metadata in ai_outputs
+    - Updated schema.sql and Supabase types; added verification script and README notes
+    - Fixed legacy ai_reference_configs schema mismatch by dropping config_json/is_active in migration
+  - Decisions made:
+    - Use per-workspace ai_reference_configs derived from prompt_templates, with workspaces.default_ai_reference_config_id as primary lookup
+    - Keep pricing override server-side and record prompt metadata for debugging
+  - Open questions / risks:
+    - Migration and backfill need to run in Supabase; existing ai_reference_configs rows must be compatible
+    - Existing lint warnings still present (pre-existing)
+  - Next actions:
+    - [ ] Apply supabase/migrations/20260125_add_workspace_prompt_schemes.sql in Supabase
+    - [ ] Run backfill: select public.backfill_workspace_ai_reference_configs();
+    - [ ] Test Submit → estimate and confirm ai_outputs.metadata includes prompt_id/source/trade

@@ -128,6 +128,27 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 6. Click "Create Workspace"
 7. You're now the owner of your workspace!
 
+## AI Prompt Templates
+
+Prompts are scoped per workspace and seeded from `prompt_templates` on workspace creation. Each workspace stores its default prompt in `ai_reference_configs`, and the workspace points to it via `workspaces.default_ai_reference_config_id`.
+
+### Add A New Trade/Prompt
+
+1. Add a `prompt_templates` row for the trade (or bump `version` for an updated prompt).
+2. Ensure the trade is allowed in the `workspaces.trade` CHECK constraint.
+3. Update the onboarding trade list to include the new option.
+4. Run the backfill to seed defaults for existing workspaces:
+
+```bash
+WORKSPACE_ID=<workspace-id> RUN_BACKFILL=1 node scripts/verify-workspace-prompts.js
+```
+
+### Verify Prompt Selection
+
+```bash
+WORKSPACE_ID=<workspace-id> JOB_ID=<job-id> node scripts/verify-workspace-prompts.js
+```
+
 ### Inviting Team Members
 
 #### Step 1: Create an Invite (Admin/Owner Only)
