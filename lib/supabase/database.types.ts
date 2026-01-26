@@ -195,6 +195,102 @@ export interface Database {
         }
         Relationships: []
       }
+      pricing_materials: {
+        Row: {
+          id: string
+          workspace_id: string
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          item_key: string
+          category: string | null
+          sku: string | null
+          unit: string | null
+          taxable: boolean
+          unit_price: number
+          aliases: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          item_key: string
+          category?: string | null
+          sku?: string | null
+          unit?: string | null
+          taxable?: boolean
+          unit_price?: number
+          aliases?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          trade?: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          item_key?: string
+          category?: string | null
+          sku?: string | null
+          unit?: string | null
+          taxable?: boolean
+          unit_price?: number
+          aliases?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pricing_labor: {
+        Row: {
+          id: string
+          workspace_id: string
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          kind: string
+          item_key: string
+          sku: string | null
+          unit: string | null
+          rate: number
+          taxable: boolean
+          aliases: string | null
+          notes: string | null
+          title: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          kind: string
+          item_key: string
+          sku?: string | null
+          unit?: string | null
+          rate?: number
+          taxable?: boolean
+          aliases?: string | null
+          notes?: string | null
+          title?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          trade?: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          kind?: string
+          item_key?: string
+          sku?: string | null
+          unit?: string | null
+          rate?: number
+          taxable?: boolean
+          aliases?: string | null
+          notes?: string | null
+          title?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           id: string
