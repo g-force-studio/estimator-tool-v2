@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
-import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
+import { PDFDocument, PDFFont, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
 import {
   supabaseAdmin,
   ESTIMATES_BUCKET,
@@ -27,6 +27,26 @@ function normalizeLineItems(items: LineItem[]) {
     ...item,
     total: item.total ?? item.quantity * item.unit_price,
   }));
+}
+
+function wrapText(text: string, font: PDFFont, fontSize: number, maxWidth: number) {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+    const width = font.widthOfTextAtSize(nextLine, fontSize);
+    if (width <= maxWidth) {
+      currentLine = nextLine;
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+
+  if (currentLine) lines.push(currentLine);
+  return lines;
 }
 
 serve(async (req) => {
@@ -108,7 +128,13 @@ serve(async (req) => {
   const estimate = (aiJson.estimate ?? null) as Record<string, unknown> | null;
   const client = (aiJson.client ?? null) as Record<string, unknown> | null;
 
-  const companyName = (aiJson.company_name as string) || 'RelayKit Estimates';
+  const { data: workspace } = await supabaseAdmin
+    .from('workspaces')
+    .select('name')
+    .eq('id', job.workspace_id)
+    .maybeSingle();
+
+  const companyName = (workspace?.name as string) || (aiJson.company_name as string) || 'RelayKit Estimates';
   const terms = (aiJson.terms as string) || 'Payment due upon receipt.';
 
   const legacyItems = Array.isArray(aiJson.line_items) ? (aiJson.line_items as LineItem[]) : [];
@@ -154,23 +180,36 @@ serve(async (req) => {
   const { width, height } = page.getSize();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const textColor = rgb(0.2, 0.2, 0.2);
 
   let y = height - 48;
   page.drawText(companyName, { x: 48, y, size: 20, font: bold, color: rgb(0.1, 0.1, 0.1) });
 
   y -= 24;
   const projectName = (estimate?.project as string) || job.title;
-  page.drawText(`Estimate for ${projectName}`, { x: 48, y, size: 12, font, color: rgb(0.2, 0.2, 0.2) });
+  page.drawText(`Estimate for ${projectName}`, { x: 48, y, size: 12, font, color: textColor });
 
   y -= 16;
   const clientName = (client?.customerName as string) || job.client_name || 'N/A';
-  page.drawText(`Client: ${clientName}`, { x: 48, y, size: 11, font });
-  page.drawText(`Due Date: ${job.due_date ?? 'N/A'}`, { x: 340, y, size: 11, font });
+  page.drawText(`Client: ${clientName}`, { x: 48, y, size: 11, font, color: textColor });
+  page.drawText(`Due Date: ${job.due_date ?? 'N/A'}`, { x: 340, y, size: 11, font, color: textColor });
 
   y -= 16;
   if (job.description_md) {
-    page.drawText(`Description: ${job.description_md}`, { x: 48, y, size: 10, font, maxWidth: width - 96 });
-    y -= 24;
+    const descriptionText = `Description: ${job.description_md}`;
+    const descriptionFontSize = 10;
+    const descriptionMaxWidth = width - 96;
+    const descriptionLines = wrapText(descriptionText, font, descriptionFontSize, descriptionMaxWidth);
+    descriptionLines.forEach((line, index) => {
+      page.drawText(line, {
+        x: 48,
+        y: y - index * 12,
+        size: descriptionFontSize,
+        font,
+        color: textColor,
+      });
+    });
+    y -= descriptionLines.length * 12 + 12;
   }
 
   page.drawLine({
@@ -181,22 +220,25 @@ serve(async (req) => {
   });
 
   y -= 20;
-  page.drawText('Line Items', { x: 48, y, size: 12, font: bold });
+  page.drawText('Line Items', { x: 48, y, size: 12, font: bold, color: textColor });
   y -= 16;
 
-  page.drawText('Description', { x: 48, y, size: 10, font: bold });
-  page.drawText('Qty', { x: 340, y, size: 10, font: bold });
-  page.drawText('Unit', { x: 400, y, size: 10, font: bold });
-  page.drawText('Total', { x: 480, y, size: 10, font: bold });
+  page.drawText('Description', { x: 48, y, size: 10, font: bold, color: textColor });
+  page.drawText('Qty', { x: 340, y, size: 10, font: bold, color: textColor });
+  page.drawText('Unit', { x: 400, y, size: 10, font: bold, color: textColor });
+  page.drawText('Total', { x: 480, y, size: 10, font: bold, color: textColor });
 
   y -= 12;
   for (const item of lineItems) {
     if (y < 120) break;
-    page.drawText(item.description, { x: 48, y, size: 10, font, maxWidth: 280 });
-    page.drawText(item.quantity.toString(), { x: 340, y, size: 10, font });
-    page.drawText(formatCurrency(item.unit_price), { x: 400, y, size: 10, font });
-    page.drawText(formatCurrency(item.total ?? 0), { x: 480, y, size: 10, font });
-    y -= 14;
+    const descriptionLines = wrapText(item.description, font, 10, 280);
+    descriptionLines.forEach((line, index) => {
+      page.drawText(line, { x: 48, y: y - index * 12, size: 10, font, color: textColor });
+    });
+    page.drawText(item.quantity.toString(), { x: 340, y, size: 10, font, color: textColor });
+    page.drawText(formatCurrency(item.unit_price), { x: 400, y, size: 10, font, color: textColor });
+    page.drawText(formatCurrency(item.total ?? 0), { x: 480, y, size: 10, font, color: textColor });
+    y -= Math.max(14, descriptionLines.length * 12);
   }
 
   y -= 12;
@@ -208,19 +250,26 @@ serve(async (req) => {
   });
 
   y -= 20;
-  page.drawText(`Subtotal: ${formatCurrency(subtotal)}`, { x: 400, y, size: 10, font });
+  page.drawText(`Subtotal: ${formatCurrency(subtotal)}`, { x: 400, y, size: 10, font, color: textColor });
   y -= 14;
-  page.drawText(`Tax: ${formatCurrency(tax)}`, { x: 400, y, size: 10, font });
+  page.drawText(`Tax: ${formatCurrency(tax)}`, { x: 400, y, size: 10, font, color: textColor });
   y -= 14;
-  page.drawText(`Total: ${formatCurrency(total)}`, { x: 400, y, size: 12, font: bold });
+  page.drawText(`Total: ${formatCurrency(total)}`, { x: 400, y, size: 12, font: bold, color: textColor });
 
   y -= 24;
-  page.drawText('Terms', { x: 48, y, size: 11, font: bold });
+  page.drawText('Terms', { x: 48, y, size: 11, font: bold, color: textColor });
   y -= 14;
-  page.drawText(terms, { x: 48, y, size: 10, font, maxWidth: width - 96 });
+  page.drawText(terms, { x: 48, y, size: 10, font, maxWidth: width - 96, color: textColor });
 
   y -= 28;
   page.drawText('Thank you for your business.', { x: 48, y, size: 10, font, color: rgb(0.4, 0.4, 0.4) });
+  page.drawText('Powered by RelayKit', {
+    x: width - 48 - 110,
+    y: 32,
+    size: 8,
+    font,
+    color: rgb(0.6, 0.6, 0.6),
+  });
 
   const pdfBytes = await pdfDoc.save();
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
