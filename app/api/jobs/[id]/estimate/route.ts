@@ -369,16 +369,35 @@ export async function POST(
       }
     });
 
+    const tokenize = (value: string) =>
+      value
+        .split(' ')
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 3);
+
     const findUnitPrice = (key: string) => {
       const direct = priceLookup.get(key);
       if (typeof direct === 'number') return direct;
 
-      let bestMatch: { key: string; price: number } | null = null;
+      const keyTokens = tokenize(key);
+      let bestMatch: { key: string; price: number; score: number } | null = null;
       for (const [priceKey, price] of priceLookup.entries()) {
         if (!priceKey) continue;
         if (key.includes(priceKey) || priceKey.includes(key)) {
-          if (!bestMatch || priceKey.length > bestMatch.key.length) {
-            bestMatch = { key: priceKey, price };
+          const score = priceKey.length;
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { key: priceKey, price, score };
+          }
+          continue;
+        }
+
+        const priceTokens = tokenize(priceKey);
+        if (priceTokens.length === 0 || keyTokens.length === 0) continue;
+        const overlap = priceTokens.filter((token) => keyTokens.includes(token)).length;
+        const score = overlap * 10 + Math.min(priceTokens.length, keyTokens.length);
+        if (overlap >= 2 || (overlap === 1 && score >= 12)) {
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { key: priceKey, price, score };
           }
         }
       }
