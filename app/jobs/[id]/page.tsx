@@ -69,6 +69,11 @@ function isJobStatus(value: unknown): value is JobStatus {
   return typeof value === 'string' && (JOB_STATUSES as readonly string[]).includes(value);
 }
 
+function isIosBrowser() {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
 function formatEstimateNumber(value: Date) {
   const pad = (part: number) => String(part).padStart(2, '0');
   const year = value.getUTCFullYear();
@@ -531,7 +536,8 @@ export default function JobDetailPage() {
   };
 
   const handleOpenPdf = async () => {
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
+    const isIos = isIosBrowser();
+    const popup = isIos ? null : window.open('', '_blank', 'noopener,noreferrer');
     try {
       const supabase = createClient();
       const { data: sessionData } = await supabase.auth.getSession();
@@ -557,7 +563,9 @@ export default function JobDetailPage() {
       }
 
       if (data?.pdf_url) {
-        if (popup) {
+        if (isIos) {
+          window.location.href = data.pdf_url;
+        } else if (popup) {
           popup.location.href = data.pdf_url;
         } else {
           window.open(data.pdf_url, '_blank', 'noopener,noreferrer');

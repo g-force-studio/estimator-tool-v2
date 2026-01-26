@@ -21,6 +21,11 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function isIosBrowser() {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
 function toJobSummary(value: unknown): JobSummary | null {
   if (!isObject(value)) return null;
   if (typeof value.id !== 'string' || typeof value.title !== 'string' || typeof value.status !== 'string') {
@@ -83,11 +88,14 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
   const openPdf = async (event: React.MouseEvent, job: JobSummary) => {
     event.preventDefault();
     event.stopPropagation();
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
+    const isIos = isIosBrowser();
+    const popup = isIos ? null : window.open('', '_blank', 'noopener,noreferrer');
 
     try {
       if (job.pdf_url) {
-        if (popup) {
+        if (isIos) {
+          window.location.href = job.pdf_url;
+        } else if (popup) {
           popup.location.href = job.pdf_url;
         } else {
           window.open(job.pdf_url, '_blank', 'noopener,noreferrer');
@@ -106,7 +114,9 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       }
 
       if (data?.pdf_url) {
-        if (popup) {
+        if (isIos) {
+          window.location.href = data.pdf_url;
+        } else if (popup) {
           popup.location.href = data.pdf_url;
         } else {
           window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
