@@ -909,19 +909,20 @@ export default function JobDetailPage() {
             )}
 
             {(isSubmittingJob || job.status === 'ai_pending' || job.status === 'pdf_pending') && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
-                <div className="w-full max-w-sm rounded-2xl border border-blue-300 bg-white px-5 py-4 text-blue-900 shadow-xl dark:border-blue-500/60 dark:bg-gray-900 dark:text-blue-100">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-block h-4 w-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin dark:border-blue-300" />
-                    <span className="text-sm font-semibold">
-                      {job.status === 'pdf_pending'
-                        ? 'Generating PDF…'
-                        : 'Generating estimate…'}
-                    </span>
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm px-6">
+                <div className="w-full max-w-xs rounded-2xl border border-white/10 bg-gray-900/90 px-5 py-4 text-white shadow-2xl">
+                  <div className="text-center text-sm font-medium">
+                    {job.status === 'pdf_pending'
+                      ? 'Generating PDF…'
+                      : 'Generating estimate…'}
                   </div>
-                  <p className="mt-2 text-xs text-blue-700/90 dark:text-blue-200/90">
-                    This can take a few seconds. Please keep this page open.
-                  </p>
+                  <div className="mt-3 flex items-center justify-center gap-3">
+                    <span className="inline-block h-4 w-4 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+                    <span className="text-xs text-blue-200/90">Working, please wait</span>
+                  </div>
+                  <div className="mt-4 h-2 w-full rounded-full bg-white/10">
+                    <div className="h-full w-2/3 rounded-full bg-blue-500/90 animate-pulse" />
+                  </div>
                 </div>
               </div>
             )}
