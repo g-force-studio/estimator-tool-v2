@@ -209,9 +209,10 @@ serve(async (req) => {
         color: textColor,
       });
     });
-    y -= descriptionLines.length * 12 + 12;
+    y -= descriptionLines.length * 12 + 16;
   }
 
+  y -= 4;
   page.drawLine({
     start: { x: 48, y },
     end: { x: width - 48, y },
@@ -219,7 +220,7 @@ serve(async (req) => {
     color: rgb(0.8, 0.8, 0.8),
   });
 
-  y -= 20;
+  y -= 18;
   page.drawText('Line Items', { x: 48, y, size: 12, font: bold, color: textColor });
   y -= 16;
 

@@ -350,7 +350,12 @@ export async function POST(
     }
 
     const priceLookup = new Map<string, number>();
-    const normalizeKey = (value: string) => value.toLowerCase().trim();
+    const normalizeKey = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
     (pricingMaterials || []).forEach((material) => {
       const price = Number(material.unit_price ?? 0);
       const baseKey = normalizeKey(material.item_key);
