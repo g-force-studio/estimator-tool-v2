@@ -1,15 +1,17 @@
 import { createServiceClient } from '@/lib/supabase/service';
 
+type Trade = 'plumbing' | 'electrical' | 'hvac' | 'general_contractor';
+
 type WorkspacePromptResult = {
   id: string | null;
   systemPrompt: string | null;
-  trade: string;
+  trade: Trade;
   source: 'workspace_default_id' | 'workspace_default_flag' | 'template' | 'fallback';
 };
 
 export async function getWorkspacePrompt(
   workspaceId: string,
-  trade: string
+  trade: Trade
 ): Promise<WorkspacePromptResult> {
   const serviceClient = createServiceClient();
 
