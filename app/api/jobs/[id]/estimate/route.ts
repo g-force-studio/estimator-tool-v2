@@ -262,6 +262,48 @@ export async function POST(
     const promptResult = await getWorkspacePrompt(job.workspace_id, 'general_contractor');
     const systemPrompt = promptResult.systemPrompt ?? fallbackSystemPrompt;
 
+    const normalizeCatalogKey = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+
+    const catalogQueryText = normalizeCatalogKey(
+      [
+        job.title,
+        job.description_md || '',
+        ...lineItems.map((item) => item.name),
+        ...lineItems.map((item) => item.description),
+      ].join(' ')
+    );
+
+    const catalogTokens = new Set(catalogQueryText.split(' ').filter((token) => token.length >= 3));
+
+    const { data: pricingCatalog } = await serviceClient
+      .from('pricing_materials')
+      .select('item_key, aliases, category, unit')
+      .eq('workspace_id', job.workspace_id)
+      .eq('trade', promptResult.trade);
+
+    const catalogCandidates = (pricingCatalog || [])
+      .map((row) => {
+        const searchable = normalizeCatalogKey(
+          [row.item_key, row.aliases || '', row.category || ''].join(' ')
+        );
+        const tokens = searchable.split(' ').filter((token) => token.length >= 3);
+        const score = tokens.reduce((sum, token) => sum + (catalogTokens.has(token) ? 1 : 0), 0);
+        return { ...row, score };
+      })
+      .filter((row) => row.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 60);
+
+    const catalogLines = catalogCandidates.map((row) => {
+      const extras = [row.category || null, row.aliases || null, row.unit || null].filter(Boolean).join(' | ');
+      return `- ${row.item_key}${extras ? ` (${extras})` : ''}`;
+    });
+
     const userText = [
       `Job title: ${job.title}`,
       `Client name: ${job.client_name || ''}`,
@@ -269,6 +311,9 @@ export async function POST(
       `Scope Summary (source): ${job.description_md || ''}`,
       `Job Summary (source): ${job.description_md || ''}`,
       `Existing line items: ${JSON.stringify(lineItems)}`,
+      catalogLines.length > 0
+        ? `Pricing catalog candidates (choose from these item_key values when possible):\n${catalogLines.join('\n')}`
+        : 'Pricing catalog candidates: none found for this scope.',
       'Use the photos to identify fixtures/materials and include key observations in image_analysis.',
     ].join('\n');
 
