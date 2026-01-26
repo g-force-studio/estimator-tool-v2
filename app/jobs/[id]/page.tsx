@@ -531,12 +531,16 @@ export default function JobDetailPage() {
   };
 
   const handleOpenPdf = async () => {
+    const popup = window.open('', '_blank', 'noopener,noreferrer');
     try {
       const supabase = createClient();
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
       if (!accessToken) {
+        if (popup) {
+          popup.close();
+        }
         await showAlert('Your session expired. Please sign in again.');
         return;
       }
@@ -553,12 +557,19 @@ export default function JobDetailPage() {
       }
 
       if (data?.pdf_url) {
-        window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
+        if (popup) {
+          popup.location.href = data.pdf_url;
+        } else {
+          window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
+        }
       } else {
         throw new Error('No PDF URL returned');
       }
     } catch (error) {
       console.error('Failed to open PDF:', error);
+      if (popup) {
+        popup.close();
+      }
       await showAlert('Failed to open PDF. Please try again.');
     }
   };

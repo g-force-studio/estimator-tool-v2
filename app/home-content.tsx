@@ -83,10 +83,15 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
   const openPdf = async (event: React.MouseEvent, job: JobSummary) => {
     event.preventDefault();
     event.stopPropagation();
+    const popup = window.open('', '_blank', 'noopener,noreferrer');
 
     try {
       if (job.pdf_url) {
-        window.open(job.pdf_url, '_blank', 'noopener,noreferrer');
+        if (popup) {
+          popup.location.href = job.pdf_url;
+        } else {
+          window.open(job.pdf_url, '_blank', 'noopener,noreferrer');
+        }
         return;
       }
 
@@ -101,12 +106,19 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
       }
 
       if (data?.pdf_url) {
-        window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
+        if (popup) {
+          popup.location.href = data.pdf_url;
+        } else {
+          window.open(data.pdf_url, '_blank', 'noopener,noreferrer');
+        }
       } else {
         throw new Error('No PDF URL returned');
       }
     } catch (error) {
       console.error('Failed to open PDF:', error);
+      if (popup) {
+        popup.close();
+      }
       await showAlert('Failed to open PDF. Please try again.');
     }
   };
