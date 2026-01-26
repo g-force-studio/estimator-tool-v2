@@ -1,35 +1,32 @@
 Current focus:
-- Add workspace-scoped prompt templates and ensure estimate route uses the workspace default prompt.
-- Backfill existing workspaces with default ai_reference_configs.
+- Make AI estimates align with pricing_materials via catalog retrieval and fuzzy matching.
+- Improve PDF layout/branding and ensure job status completes when PDFs exist.
 
 What's working:
-- Onboarding now captures trade and workspace creation seeds a default ai_reference_configs prompt from prompt_templates.
-- Estimate route loads prompt via workspace.default_ai_reference_config_id -> workspace default -> prompt_templates -> fallback.
-- AI materials cost is overwritten server-side from pricing_materials; prompt metadata is stored in ai_outputs.
+- iOS PDF open uses same-tab navigation (reliable in PWA).
+- Desktop PDF open no longer creates a blank tab.
+- Draft-only description visibility restored in job detail.
+- Submit/create banners are more visible with animated spinner.
 
 What's broken / pending:
-- Migration 20260125_add_workspace_prompt_schemes.sql must be run in Supabase.
-- Backfill function must be executed to seed existing workspaces.
-- Existing lint warnings remain (pre-existing).
+- Pricing_materials catalog only applies after re-running estimates.
+- PDF layout/branding changes require generate-pdf Edge Function deploy and PDF regeneration.
+- Pricing trade mismatches (workspace trade vs pricing_materials.trade) can yield empty catalogs.
 
 Latest files touched:
-- supabase/migrations/20260125_add_workspace_prompt_schemes.sql
 - app/api/jobs/[id]/estimate/route.ts
-- app/api/workspaces/route.ts
-- app/onboarding/page.tsx
+- app/jobs/[id]/page.tsx
+- app/home-content.tsx
+- app/jobs/new/page.tsx
 - lib/prompts.ts
-- lib/validations.ts
 - lib/supabase/database.types.ts
-- supabase/schema.sql
-- scripts/verify-workspace-prompts.js
-- README.md
+- supabase/functions/generate-pdf/index.ts
 
 Commands to run locally:
-- npm run lint
-- WORKSPACE_ID=<workspace-id> RUN_BACKFILL=1 node scripts/verify-workspace-prompts.js
-- WORKSPACE_ID=<workspace-id> JOB_ID=<job-id> node scripts/verify-workspace-prompts.js
+- npm run build
+- Re-submit estimate (or POST /generate-pdf with {"force": true}) after deploy
 
 Next 3 concrete steps:
-1) Apply supabase/migrations/20260125_add_workspace_prompt_schemes.sql in Supabase.
-2) Run: select public.backfill_workspace_ai_reference_configs();
-3) Submit a job estimate and confirm ai_outputs.ai_json.metadata includes prompt_id/source/trade.
+1) Deploy updated generate-pdf Edge Function and re-generate a PDF.
+2) Re-run estimate to apply catalog retrieval and fuzzy pricing match.
+3) Verify material prices align with pricing_materials and adjust aliases as needed.

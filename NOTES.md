@@ -433,3 +433,26 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Apply supabase/migrations/20260125_add_workspace_prompt_schemes.sql in Supabase
     - [ ] Run backfill: select public.backfill_workspace_ai_reference_configs();
     - [ ] Test Submit → estimate and confirm ai_outputs.metadata includes prompt_id/source/trade
+- Date/Time (2026-01-26 15:20), Session Goal: Stabilize estimates, PDF delivery, and pricing/catalog matching
+  - What changed:
+    - Switched estimate numbers to date-based format and added UI fallback for older estimates
+    - Added pricing tables to Supabase types and tightened prompt trade typing
+    - Fixed generate-pdf to mark jobs complete when PDF already exists
+    - Improved PDF layout (workspace header, wrapping, spacing) and added “Powered by RelayKit”
+    - Adjusted PDF open flow for iOS (same-tab) and removed desktop blank-tab pre-open
+    - Restored job description display in draft-only view
+    - Improved pricing matching (normalization + fuzzy token matching)
+    - Added catalog retrieval (top 60) from pricing_materials into AI prompt
+    - Enhanced submit/create banners with animated, higher-contrast status UI
+  - Decisions made:
+    - Use retrieval (top 60) from pricing_materials to steer AI material selection
+    - Keep iOS PDF opening in same tab for reliability
+    - Show job description only before initial submission
+  - Open questions / risks:
+    - Ensure pricing_materials trade matches workspace trade to avoid empty catalog
+    - Re-run estimates + regenerate PDFs to see layout/price updates
+    - Edge Functions must be deployed for PDF layout/status changes to take effect
+  - Next actions:
+    - [ ] Deploy updated generate-pdf Edge Function and re-generate a PDF (force true or re-submit)
+    - [ ] Re-run estimate to apply catalog retrieval + pricing match updates
+    - [ ] Verify material pricing matches expected catalog items
