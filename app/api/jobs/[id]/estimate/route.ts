@@ -50,6 +50,15 @@ type EstimateDraft = {
 };
 
 const roundToHalf = (value: number) => Math.round(value * 2) / 2;
+const formatEstimateNumber = (value: Date) => {
+  const pad = (part: number) => String(part).padStart(2, '0');
+  const year = value.getUTCFullYear();
+  const month = pad(value.getUTCMonth() + 1);
+  const day = pad(value.getUTCDate());
+  const hours = pad(value.getUTCHours());
+  const minutes = pad(value.getUTCMinutes());
+  return `${year}${month}${day}-${hours}${minutes}`;
+};
 
 const extractOutputText = (payload: OpenAIResponse) => {
   if (typeof payload?.output_text === 'string') return payload.output_text;
@@ -376,6 +385,7 @@ export async function POST(
     const tax = roundToHalf(((subtotal + markupAmount) * taxRate) / 100);
     const total = roundToHalf(subtotal + markupAmount + tax);
 
+    const estimateTimestamp = new Date();
     const aiJson = {
       client: {
         customerName: parsed?.client?.customerName || job.client_name || '',
@@ -385,7 +395,7 @@ export async function POST(
         preferredDate: parsed?.client?.preferredDate || job.due_date || '',
       },
       estimate: {
-        estimateNumber: String(parsed?.estimate?.estimateNumber || job.id),
+        estimateNumber: formatEstimateNumber(estimateTimestamp),
         project: parsed?.estimate?.project || job.title,
         jobDescription: parsed?.estimate?.jobDescription || job.description_md || '',
         jobNotes: parsed?.estimate?.jobNotes || '',
@@ -407,7 +417,7 @@ export async function POST(
         prompt_id: promptResult.id,
         prompt_source: promptResult.source,
         prompt_trade: promptResult.trade,
-        generated_at: new Date().toISOString(),
+        generated_at: estimateTimestamp.toISOString(),
       },
     };
 
@@ -425,7 +435,7 @@ export async function POST(
       status: 'ai_ready',
       error_message: null,
       estimate_status: 'complete',
-      estimated_at: new Date().toISOString(),
+      estimated_at: estimateTimestamp.toISOString(),
     });
 
     const functionsBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL

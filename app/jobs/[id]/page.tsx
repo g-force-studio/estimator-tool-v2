@@ -69,6 +69,20 @@ function isJobStatus(value: unknown): value is JobStatus {
   return typeof value === 'string' && (JOB_STATUSES as readonly string[]).includes(value);
 }
 
+function formatEstimateNumber(value: Date) {
+  const pad = (part: number) => String(part).padStart(2, '0');
+  const year = value.getUTCFullYear();
+  const month = pad(value.getUTCMonth() + 1);
+  const day = pad(value.getUTCDate());
+  const hours = pad(value.getUTCHours());
+  const minutes = pad(value.getUTCMinutes());
+  return `${year}${month}${day}-${hours}${minutes}`;
+}
+
+function isLikelyUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
 function toJobFromCache(value: unknown): Job | null {
   if (!isObject(value)) return null;
   if (
@@ -615,6 +629,16 @@ export default function JobDetailPage() {
     return isObject(estimate) ? estimate : null;
   }, [aiOutput]);
 
+  const displayEstimateNumber = useMemo(() => {
+    if (!aiEstimate) return null;
+    const raw = typeof aiEstimate.estimateNumber === 'string' ? aiEstimate.estimateNumber.trim() : '';
+    if (raw && !isLikelyUuid(raw)) return raw;
+    if (aiOutput?.created_at) {
+      return formatEstimateNumber(new Date(aiOutput.created_at));
+    }
+    return raw || null;
+  }, [aiEstimate, aiOutput]);
+
   const toNumber = (value: unknown) => {
     if (typeof value === 'number') return value;
     const parsed = Number(value);
@@ -695,13 +719,6 @@ export default function JobDetailPage() {
               </p>
             </div>
 
-            {job.description_md && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</h3>
-                <p className="text-gray-900 dark:text-white whitespace-pre-wrap">{job.description_md}</p>
-              </div>
-            )}
-
             {lineItems.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -746,10 +763,10 @@ export default function JobDetailPage() {
                     </span>
                   )}
                 </div>
-                {typeof aiEstimate.estimateNumber === 'string' && (
+                {displayEstimateNumber && (
                   <div className="text-sm text-gray-700 dark:text-gray-300">
                     <span className="font-medium text-gray-900 dark:text-white">Estimate #</span>{' '}
-                    {aiEstimate.estimateNumber}
+                    {displayEstimateNumber}
                   </div>
                 )}
                 {typeof aiEstimate.jobDescription === 'string' && aiEstimate.jobDescription.trim() !== '' && (
