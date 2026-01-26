@@ -55,6 +55,15 @@ serve(async (req) => {
     .maybeSingle();
 
   if (existingFile && !force) {
+    const { error: statusError } = await supabaseAdmin
+      .from('jobs')
+      .update({ status: 'complete', error_message: null })
+      .eq('id', jobId);
+
+    if (statusError) {
+      console.error('Failed to update job status to complete:', statusError);
+    }
+
     return new Response(JSON.stringify({ pdf_url: existingFile.public_url, storage_path: existingFile.storage_path }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
