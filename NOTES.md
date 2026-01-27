@@ -456,3 +456,21 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Deploy updated generate-pdf Edge Function and re-generate a PDF (force true or re-submit)
     - [ ] Re-run estimate to apply catalog retrieval + pricing match updates
     - [ ] Verify material pricing matches expected catalog items
+- Date/Time (2026-01-26 20:21), Session Goal: Improve UX feedback, pricing selection, and PDF lifecycle
+  - What changed:
+    - Centered submit/create loading toast with modal styling; removed progress bar
+    - Restored draft-only description display in job detail
+    - Improved material price matching (normalization + fuzzy token overlap)
+    - Added pricing catalog retrieval (top 60) into AI prompt
+    - Adjusted PDF open flow (iOS same-tab only; removed desktop blank tab)
+    - Updated generate-pdf to keep only the latest PDF and clean old files
+  - Decisions made:
+    - Use retrieval-based catalog injection (top 60) for AI material selection
+    - Keep only the most recent PDF per job; delete older PDFs on regeneration
+  - Open questions / risks:
+    - Ensure workspace trade matches pricing_materials trade to avoid empty catalog
+    - Edge Functions must be deployed for PDF layout/lifecycle changes
+  - Next actions:
+    - [ ] Deploy updated generate-pdf Edge Function
+    - [ ] Re-run estimate to apply catalog retrieval and pricing match changes
+    - [ ] Verify material pricing aligns with catalog after re-submit

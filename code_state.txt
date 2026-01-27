@@ -1,32 +1,29 @@
 Current focus:
-- Make AI estimates align with pricing_materials via catalog retrieval and fuzzy matching.
-- Improve PDF layout/branding and ensure job status completes when PDFs exist.
+- Improve AI material selection using pricing catalog retrieval.
+- Keep PDFs and job status consistent after re-submission.
 
 What's working:
-- iOS PDF open uses same-tab navigation (reliable in PWA).
-- Desktop PDF open no longer creates a blank tab.
-- Draft-only description visibility restored in job detail.
-- Submit/create banners are more visible with animated spinner.
+- Centered modal loading toast for job creation and estimate submission.
+- iOS PDF open uses same-tab navigation; desktop uses standard popup.
+- Draft-only description visibility restored.
 
 What's broken / pending:
-- Pricing_materials catalog only applies after re-running estimates.
-- PDF layout/branding changes require generate-pdf Edge Function deploy and PDF regeneration.
-- Pricing trade mismatches (workspace trade vs pricing_materials.trade) can yield empty catalogs.
+- Pricing_materials catalog only impacts new estimates; requires re-submit.
+- Edge Functions (generate-pdf) must be deployed for latest PDF cleanup to apply.
+- Trade mismatches between workspace and pricing_materials can cause empty catalog.
 
 Latest files touched:
 - app/api/jobs/[id]/estimate/route.ts
 - app/jobs/[id]/page.tsx
 - app/home-content.tsx
 - app/jobs/new/page.tsx
-- lib/prompts.ts
-- lib/supabase/database.types.ts
 - supabase/functions/generate-pdf/index.ts
 
 Commands to run locally:
 - npm run build
-- Re-submit estimate (or POST /generate-pdf with {"force": true}) after deploy
+- Re-submit estimate to apply pricing changes
 
 Next 3 concrete steps:
-1) Deploy updated generate-pdf Edge Function and re-generate a PDF.
-2) Re-run estimate to apply catalog retrieval and fuzzy pricing match.
-3) Verify material prices align with pricing_materials and adjust aliases as needed.
+1) Deploy updated generate-pdf Edge Function.
+2) Re-run estimate to apply catalog retrieval and fuzzy matching.
+3) Verify PDF regeneration keeps only the latest file.
