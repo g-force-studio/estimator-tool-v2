@@ -230,16 +230,20 @@ serve(async (req) => {
   page.drawText('Total', { x: 480, y, size: 10, font: bold, color: textColor });
 
   y -= 12;
+  const lineItemFontSize = 10;
+  const lineItemLineHeight = 12;
+  const lineItemRowPadding = 4;
   for (const item of lineItems) {
-    if (y < 120) break;
-    const descriptionLines = wrapText(item.description, font, 10, 280);
+    const descriptionLines = wrapText(item.description, font, lineItemFontSize, 280);
+    const rowHeight = Math.max(lineItemLineHeight, descriptionLines.length * lineItemLineHeight) + lineItemRowPadding;
+    if (y - rowHeight < 120) break;
     descriptionLines.forEach((line, index) => {
-      page.drawText(line, { x: 48, y: y - index * 12, size: 10, font, color: textColor });
+      page.drawText(line, { x: 48, y: y - index * lineItemLineHeight, size: lineItemFontSize, font, color: textColor });
     });
-    page.drawText(item.quantity.toString(), { x: 340, y, size: 10, font, color: textColor });
-    page.drawText(formatCurrency(item.unit_price), { x: 400, y, size: 10, font, color: textColor });
-    page.drawText(formatCurrency(item.total ?? 0), { x: 480, y, size: 10, font, color: textColor });
-    y -= Math.max(14, descriptionLines.length * 12);
+    page.drawText(item.quantity.toString(), { x: 340, y, size: lineItemFontSize, font, color: textColor });
+    page.drawText(formatCurrency(item.unit_price), { x: 400, y, size: lineItemFontSize, font, color: textColor });
+    page.drawText(formatCurrency(item.total ?? 0), { x: 480, y, size: lineItemFontSize, font, color: textColor });
+    y -= rowHeight;
   }
 
   y -= 12;
