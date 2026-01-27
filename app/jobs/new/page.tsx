@@ -375,9 +375,6 @@ export default function NewJobPage() {
                   <span className="inline-block h-4 w-4 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
                   <span className="text-xs text-blue-200/90">Working, please wait</span>
                 </div>
-                <div className="mt-4 h-2 w-full rounded-full bg-white/10">
-                  <div className="h-full w-2/3 rounded-full bg-blue-500/90 animate-pulse" />
-                </div>
               </div>
             </div>
           )}
