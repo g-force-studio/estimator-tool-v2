@@ -291,23 +291,54 @@ serve(async (req) => {
     });
   }
 
-  const { error: insertError } = await supabaseAdmin.from('job_files').insert({
-    job_id: jobId,
-    kind: 'pdf',
-    storage_path: storagePath,
-    public_url: null,
-  });
+  const { data: newFile, error: insertError } = await supabaseAdmin
+    .from('job_files')
+    .insert({
+      job_id: jobId,
+      kind: 'pdf',
+      storage_path: storagePath,
+      public_url: null,
+    })
+    .select('id, storage_path')
+    .single();
 
-  if (insertError) {
+  if (insertError || !newFile) {
     console.error('Failed to insert job_files record:', insertError);
     await supabaseAdmin
       .from('jobs')
-      .update({ status: 'pdf_error', error_message: `Failed to save PDF record: ${insertError.message}` })
+      .update({ status: 'pdf_error', error_message: `Failed to save PDF record: ${insertError?.message || 'Unknown error'}` })
       .eq('id', jobId);
-    return new Response(JSON.stringify({ error: insertError.message }), {
+    return new Response(JSON.stringify({ error: insertError?.message || 'Failed to save PDF record' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  const { data: oldFiles } = await supabaseAdmin
+    .from('job_files')
+    .select('id, storage_path')
+    .eq('job_id', jobId)
+    .eq('kind', 'pdf')
+    .neq('id', newFile.id);
+
+  if (oldFiles && oldFiles.length > 0) {
+    const oldPaths = oldFiles.map((file) => file.storage_path).filter(Boolean);
+    if (oldPaths.length > 0) {
+      const { error: removeError } = await supabaseAdmin.storage
+        .from(ESTIMATES_BUCKET)
+        .remove(oldPaths);
+      if (removeError) {
+        console.error('Failed to remove old PDF files:', removeError);
+      }
+    }
+
+    const { error: cleanupError } = await supabaseAdmin
+      .from('job_files')
+      .delete()
+      .in('id', oldFiles.map((file) => file.id));
+    if (cleanupError) {
+      console.error('Failed to clean up old job_files records:', cleanupError);
+    }
   }
 
   const { error: statusError } = await supabaseAdmin
