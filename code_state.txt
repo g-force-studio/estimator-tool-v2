@@ -1,36 +1,29 @@
 Current focus:
-- Workspace-specific pricing overrides with customer-specific prompt support.
-- Simplified CSV import flow for pricing materials.
+- Get Netlify build green after schema/type sync.
+- Import workspace pricing via import token.
 
 What's working:
-- PDF line item spacing accounts for wrapped descriptions.
-- Customer-aware prompt selection and pricing override fallback (customer → workspace → default).
-- CSV import endpoint supports batch inserts and import-token auth.
+- Customer-aware prompt selection with overrides.
+- Pricing fallback order (customer → workspace → default) with median pricing.
+- CSV import endpoint with batch insert and import-token auth.
 
 What's broken / pending:
-- Supabase migration for customers/workspace_pricing_materials not yet applied.
-- Netlify needs IMPORT_TOKEN env var and redeploy.
-- job.customer_id has no UI yet; must be set via API or workflow.
+- Netlify needs IMPORT_TOKEN env and redeploy.
+- Migration for customers/workspace_pricing_materials must be applied.
+- job.customer_id still needs population flow.
 
 Latest files touched:
 - app/api/pricing-materials/import/route.ts
-- app/api/customers/route.ts
-- app/api/jobs/[id]/customer/route.ts
 - app/api/jobs/[id]/estimate/route.ts
-- lib/prompts.ts
-- supabase/migrations/20260128_add_customers_and_workspace_pricing_materials.sql
+- app/home-content.tsx
+- app/jobs/[id]/page.tsx
 - supabase/schema.sql
 - lib/supabase/database.types.ts
 
 Commands to run locally:
 - npm run build
-- curl -i -X POST https://<app>/api/pricing-materials/import \
-  -H "x-import-token: <IMPORT_TOKEN>" \
-  -F "workspace_id=<WORKSPACE_ID>" \
-  -F "trade=general_contractor" \
-  -F "file=@/path/to/pricing.csv"
 
 Next 3 concrete steps:
 1) Apply supabase/migrations/20260128_add_customers_and_workspace_pricing_materials.sql.
 2) Set IMPORT_TOKEN in Netlify and redeploy.
-3) Import pricing CSV and verify override pricing on a new estimate.
+3) Import pricing CSV with x-import-token + workspace_id and verify estimates.

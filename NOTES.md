@@ -496,3 +496,18 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Set `IMPORT_TOKEN` in Netlify and redeploy
     - [ ] Import workspace pricing CSV via `/api/pricing-materials/import`
     - [ ] Decide how to populate job.customer_id (UI or batch)
+- Date/Time (2026-01-28 13:05), Session Goal: Fix build errors and simplify CSV import auth
+  - What changed:
+    - Added import-token auth path for pricing CSV uploads and bearer-token support for easier CLI usage
+    - Fixed pricing import type insert to satisfy TypeScript
+    - Resolved build error by syncing jobs.estimate_status + jobs.estimated_at into schema and types
+    - Cleared lint warnings in estimate and job views
+  - Decisions made:
+    - Allow IMPORT_TOKEN auth for pricing imports to avoid cookie/JWT complexity
+  - Open questions / risks:
+    - Ensure IMPORT_TOKEN is set in Netlify and redeploy complete
+    - Verify pricing CSV import succeeds with token + workspace_id
+  - Next actions:
+    - [ ] Set `IMPORT_TOKEN` in Netlify and redeploy
+    - [ ] Import pricing CSV using `/api/pricing-materials/import` with x-import-token
+    - [ ] Re-run Netlify build to confirm no TypeScript errors
