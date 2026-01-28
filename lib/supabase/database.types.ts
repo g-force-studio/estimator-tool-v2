@@ -120,6 +120,30 @@ export interface Database {
         }
         Relationships: []
       }
+      customers: {
+        Row: {
+          id: string
+          workspace_id: string
+          name: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          name: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          name?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       workspace_invites: {
         Row: {
           id: string
@@ -240,6 +264,51 @@ export interface Database {
         }
         Relationships: []
       }
+      workspace_pricing_materials: {
+        Row: {
+          id: string
+          workspace_id: string
+          customer_id: string | null
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          description: string
+          normalized_key: string
+          unit: string | null
+          unit_cost: number
+          source: string
+          source_job_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          customer_id?: string | null
+          trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          description: string
+          normalized_key: string
+          unit?: string | null
+          unit_cost: number
+          source?: string
+          source_job_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          customer_id?: string | null
+          trade?: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
+          description?: string
+          normalized_key?: string
+          unit?: string | null
+          unit_cost?: number
+          source?: string
+          source_job_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pricing_labor: {
         Row: {
           id: string
@@ -307,6 +376,7 @@ export interface Database {
             | 'pdf_error'
           due_date: string | null
           client_name: string | null
+          customer_id: string | null
           description_md: string | null
           template_id: string | null
           labor_rate: number | null
@@ -331,6 +401,7 @@ export interface Database {
             | 'pdf_error'
           due_date?: string | null
           client_name?: string | null
+          customer_id?: string | null
           description_md?: string | null
           template_id?: string | null
           labor_rate?: number | null
@@ -355,6 +426,7 @@ export interface Database {
             | 'pdf_error'
           due_date?: string | null
           client_name?: string | null
+          customer_id?: string | null
           description_md?: string | null
           template_id?: string | null
           labor_rate?: number | null
@@ -370,6 +442,13 @@ export interface Database {
             columns: ['id']
             referencedRelation: 'ai_outputs'
             referencedColumns: ['job_id']
+            isOneToOne: false
+          },
+          {
+            foreignKeyName: 'jobs_customer_id_fkey'
+            columns: ['customer_id']
+            referencedRelation: 'customers'
+            referencedColumns: ['id']
             isOneToOne: false
           },
           {
@@ -596,6 +675,7 @@ export interface Database {
         Row: {
           id: string
           workspace_id: string
+          customer_id: string | null
           trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
           name: string
           system_prompt: string
@@ -606,6 +686,7 @@ export interface Database {
         Insert: {
           id?: string
           workspace_id: string
+          customer_id?: string | null
           trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
           name: string
           system_prompt: string
@@ -616,6 +697,7 @@ export interface Database {
         Update: {
           id?: string
           workspace_id?: string
+          customer_id?: string | null
           trade?: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
           name?: string
           system_prompt?: string
