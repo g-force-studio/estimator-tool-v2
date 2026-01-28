@@ -10,3 +10,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 supabase/.temp/
+supabase/general-contractor-materials-Table.csv

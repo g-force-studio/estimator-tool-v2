@@ -6,12 +6,18 @@ type WorkspacePromptResult = {
   id: string | null;
   systemPrompt: string | null;
   trade: Trade;
-  source: 'workspace_default_id' | 'workspace_default_flag' | 'template' | 'fallback';
+  source:
+    | 'customer_override'
+    | 'workspace_default_id'
+    | 'workspace_default_flag'
+    | 'template'
+    | 'fallback';
 };
 
 export async function getWorkspacePrompt(
   workspaceId: string,
-  trade: Trade
+  trade: Trade,
+  customerId?: string | null
 ): Promise<WorkspacePromptResult> {
   const serviceClient = createServiceClient();
 
@@ -25,10 +31,32 @@ export async function getWorkspacePrompt(
     throw workspaceError;
   }
 
+  if (customerId) {
+    const { data: customerConfig, error: customerError } = await serviceClient
+      .from('ai_reference_configs')
+      .select('id, system_prompt, trade')
+      .eq('workspace_id', workspaceId)
+      .eq('customer_id', customerId)
+      .maybeSingle();
+
+    if (customerError) {
+      throw customerError;
+    }
+
+    if (customerConfig?.system_prompt) {
+      return {
+        id: customerConfig.id,
+        systemPrompt: customerConfig.system_prompt,
+        trade: customerConfig.trade ?? workspace?.trade ?? trade,
+        source: 'customer_override' as const,
+      };
+    }
+  }
+
   if (workspace?.default_ai_reference_config_id) {
     const { data: config, error: configError } = await serviceClient
       .from('ai_reference_configs')
-      .select('id, system_prompt')
+      .select('id, system_prompt, trade')
       .eq('id', workspace.default_ai_reference_config_id)
       .maybeSingle();
 
@@ -40,7 +68,7 @@ export async function getWorkspacePrompt(
       return {
         id: config.id,
         systemPrompt: config.system_prompt,
-        trade: workspace?.trade ?? trade,
+        trade: config.trade ?? workspace?.trade ?? trade,
         source: 'workspace_default_id' as const,
       };
     }
@@ -48,7 +76,7 @@ export async function getWorkspacePrompt(
 
   const { data: defaultConfig, error: defaultError } = await serviceClient
     .from('ai_reference_configs')
-    .select('id, system_prompt')
+    .select('id, system_prompt, trade')
     .eq('workspace_id', workspaceId)
     .eq('is_default', true)
     .maybeSingle();
@@ -61,7 +89,7 @@ export async function getWorkspacePrompt(
     return {
       id: defaultConfig.id,
       systemPrompt: defaultConfig.system_prompt,
-      trade: workspace?.trade ?? trade,
+      trade: defaultConfig.trade ?? workspace?.trade ?? trade,
       source: 'workspace_default_flag' as const,
     };
   }
