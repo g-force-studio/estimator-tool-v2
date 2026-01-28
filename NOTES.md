@@ -474,3 +474,25 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Deploy updated generate-pdf Edge Function
     - [ ] Re-run estimate to apply catalog retrieval and pricing match changes
     - [ ] Verify material pricing aligns with catalog after re-submit
+- Date/Time (2026-01-28 12:50), Session Goal: Add workspace pricing overrides, customer prompts, and import tooling
+  - What changed:
+    - Added customers table and workspace_pricing_materials table with RLS and triggers
+    - Added customer_id on jobs and ai_reference_configs for customer-specific prompt overrides
+    - Implemented customer-aware prompt selection and pricing override fallback (customer → workspace → default)
+    - Added CSV import endpoint for workspace pricing with batch inserts and normalization
+    - Added customers API and job customer assignment endpoint
+    - Added import-token auth path for CSV imports and typed batch inserts to fix build
+    - Updated Supabase schema snapshot/types and ignored local pricing CSV in gitignore
+    - Fixed PDF line item spacing and cleared lint warnings
+  - Decisions made:
+    - Use median pricing for custom/workspace material overrides
+    - Add IMPORT_TOKEN for simplified CSV imports without cookies
+  - Open questions / risks:
+    - Migration must be applied in Supabase
+    - Netlify env must include IMPORT_TOKEN and redeploy
+    - Customer_id still needs a UI or workflow to populate jobs
+  - Next actions:
+    - [ ] Apply `supabase/migrations/20260128_add_customers_and_workspace_pricing_materials.sql`
+    - [ ] Set `IMPORT_TOKEN` in Netlify and redeploy
+    - [ ] Import workspace pricing CSV via `/api/pricing-materials/import`
+    - [ ] Decide how to populate job.customer_id (UI or batch)

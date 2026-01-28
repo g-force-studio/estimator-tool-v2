@@ -1,29 +1,36 @@
 Current focus:
-- Improve AI material selection using pricing catalog retrieval.
-- Keep PDFs and job status consistent after re-submission.
+- Workspace-specific pricing overrides with customer-specific prompt support.
+- Simplified CSV import flow for pricing materials.
 
 What's working:
-- Centered modal loading toast for job creation and estimate submission.
-- iOS PDF open uses same-tab navigation; desktop uses standard popup.
-- Draft-only description visibility restored.
+- PDF line item spacing accounts for wrapped descriptions.
+- Customer-aware prompt selection and pricing override fallback (customer → workspace → default).
+- CSV import endpoint supports batch inserts and import-token auth.
 
 What's broken / pending:
-- Pricing_materials catalog only impacts new estimates; requires re-submit.
-- Edge Functions (generate-pdf) must be deployed for latest PDF cleanup to apply.
-- Trade mismatches between workspace and pricing_materials can cause empty catalog.
+- Supabase migration for customers/workspace_pricing_materials not yet applied.
+- Netlify needs IMPORT_TOKEN env var and redeploy.
+- job.customer_id has no UI yet; must be set via API or workflow.
 
 Latest files touched:
+- app/api/pricing-materials/import/route.ts
+- app/api/customers/route.ts
+- app/api/jobs/[id]/customer/route.ts
 - app/api/jobs/[id]/estimate/route.ts
-- app/jobs/[id]/page.tsx
-- app/home-content.tsx
-- app/jobs/new/page.tsx
-- supabase/functions/generate-pdf/index.ts
+- lib/prompts.ts
+- supabase/migrations/20260128_add_customers_and_workspace_pricing_materials.sql
+- supabase/schema.sql
+- lib/supabase/database.types.ts
 
 Commands to run locally:
 - npm run build
-- Re-submit estimate to apply pricing changes
+- curl -i -X POST https://<app>/api/pricing-materials/import \
+  -H "x-import-token: <IMPORT_TOKEN>" \
+  -F "workspace_id=<WORKSPACE_ID>" \
+  -F "trade=general_contractor" \
+  -F "file=@/path/to/pricing.csv"
 
 Next 3 concrete steps:
-1) Deploy updated generate-pdf Edge Function.
-2) Re-run estimate to apply catalog retrieval and fuzzy matching.
-3) Verify PDF regeneration keeps only the latest file.
+1) Apply supabase/migrations/20260128_add_customers_and_workspace_pricing_materials.sql.
+2) Set IMPORT_TOKEN in Netlify and redeploy.
+3) Import pricing CSV and verify override pricing on a new estimate.
