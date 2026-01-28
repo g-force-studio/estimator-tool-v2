@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/database.types';
 
@@ -92,29 +93,48 @@ const createBearerClient = (token: string) => {
 
 export async function POST(request: NextRequest) {
   try {
+    const formData = await request.formData();
+    const importToken = request.headers.get('x-import-token') || '';
+    const expectedToken = process.env.IMPORT_TOKEN?.trim() || '';
+    const isTokenAuth = expectedToken.length > 0 && importToken === expectedToken;
     const authHeader = request.headers.get('authorization') || '';
     const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i);
     const supabase = bearerMatch ? createBearerClient(bearerMatch[1]) : createServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const serviceClient = createServiceClient();
+    let workspaceId: string | null = null;
 
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (isTokenAuth) {
+      const rawWorkspaceId = formData.get('workspace_id');
+      workspaceId = typeof rawWorkspaceId === 'string' ? rawWorkspaceId : null;
+      if (!workspaceId) {
+        return NextResponse.json(
+          { error: 'workspace_id is required when using x-import-token' },
+          { status: 400 }
+        );
+      }
+    } else {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const { data: member, error: memberError } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (memberError || !member) {
+        return NextResponse.json({ error: 'No workspace found' }, { status: 400 });
+      }
+
+      workspaceId = member.workspace_id;
     }
 
-    const { data: member, error: memberError } = await supabase
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (memberError || !member) {
-      return NextResponse.json({ error: 'No workspace found' }, { status: 400 });
-    }
-
-    const formData = await request.formData();
     const tradeValue = String(formData.get('trade') || '');
     const trade = TRADE_VALUES.includes(tradeValue as Trade)
       ? (tradeValue as Trade)
@@ -172,11 +192,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (customerIds.size > 0) {
-      const { data: customers, error: customerError } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('workspace_id', member.workspace_id)
-        .in('id', Array.from(customerIds));
+    const { data: customers, error: customerError } = await serviceClient
+      .from('customers')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .in('id', Array.from(customerIds));
 
       if (customerError) throw customerError;
 
@@ -214,7 +234,7 @@ export async function POST(request: NextRequest) {
       }
 
       rowsToInsert.push({
-        workspace_id: member.workspace_id,
+        workspace_id: workspaceId,
         trade,
         description,
         normalized_key: normalized || normalizeKey(description),
@@ -230,9 +250,7 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < rowsToInsert.length; i += batchSize) {
       const batch = rowsToInsert.slice(i, i + batchSize);
-      const { error } = await supabase
-        .from('workspace_pricing_materials')
-        .insert(batch);
+      const { error } = await serviceClient.from('workspace_pricing_materials').insert(batch);
       if (error) throw error;
       inserted += batch.length;
     }
