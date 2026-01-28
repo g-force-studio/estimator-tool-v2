@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { hasAccess } from '@/lib/access';
 import { getWorkspacePrompt } from '@/lib/prompts';
+import type { Database } from '@/lib/supabase/database.types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const DRAFT_MODEL = 'gpt-4.1-mini';
@@ -135,7 +136,7 @@ RULES
 async function safeJobUpdate(
   serviceClient: ReturnType<typeof createServiceClient>,
   jobId: string,
-  patch: Record<string, any>
+  patch: Database['public']['Tables']['jobs']['Update']
 ) {
   try {
     const { error } = await serviceClient.from('jobs').update(patch).eq('id', jobId);
