@@ -208,7 +208,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const rowsToInsert: Array<Record<string, unknown>> = [];
+    type PricingInsert =
+      Database['public']['Tables']['workspace_pricing_materials']['Insert'];
+    const rowsToInsert: PricingInsert[] = [];
     const errors: Array<{ row: number; error: string }> = [];
     let skipped = 0;
 
