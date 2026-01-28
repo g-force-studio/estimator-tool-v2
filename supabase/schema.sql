@@ -129,6 +129,8 @@ CREATE TABLE jobs (
   totals_json JSONB,
   pdf_url TEXT,
   error_message TEXT,
+  estimate_status TEXT,
+  estimated_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
