@@ -311,10 +311,13 @@ export async function POST(
     const hasCustomerPricing = (customerPricing?.length ?? 0) > 0;
     const hasWorkspacePricing = (workspacePricing?.length ?? 0) > 0;
 
-    const { data: pricingCatalog } = await serviceClient
+    const pricingCatalogQuery = serviceClient
       .from('pricing_materials')
-      .select('item_key, aliases, category, unit')
-      .eq('trade', promptResult.trade);
+      .select('item_key, aliases, category, unit');
+    const { data: pricingCatalog } =
+      promptResult.trade === 'general_contractor'
+        ? await pricingCatalogQuery
+        : await pricingCatalogQuery.eq('trade', promptResult.trade);
 
     const catalogDefaults = pricingCatalog || [];
     const customerCatalog =
@@ -450,10 +453,13 @@ export async function POST(
         }))
       : [];
 
-    const { data: pricingMaterials, error: pricingError } = await serviceClient
+    const pricingMaterialsQuery = serviceClient
       .from('pricing_materials')
-      .select('item_key, unit_price, aliases')
-      .eq('trade', promptResult.trade);
+      .select('item_key, unit_price, aliases');
+    const { data: pricingMaterials, error: pricingError } =
+      promptResult.trade === 'general_contractor'
+        ? await pricingMaterialsQuery
+        : await pricingMaterialsQuery.eq('trade', promptResult.trade);
 
     if (pricingError) {
       console.error('Pricing materials fetch error:', pricingError);
