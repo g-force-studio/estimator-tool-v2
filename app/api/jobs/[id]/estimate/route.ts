@@ -314,24 +314,43 @@ export async function POST(
     const { data: pricingCatalog } = await serviceClient
       .from('pricing_materials')
       .select('item_key, aliases, category, unit')
-      .eq('workspace_id', job.workspace_id)
       .eq('trade', promptResult.trade);
 
-    const catalogSource = hasCustomerPricing
-      ? (customerPricing || []).map((row) => ({
-          item_key: row.description || row.normalized_key,
-          aliases: null,
-          category: null,
-          unit: row.unit,
-        }))
-      : hasWorkspacePricing
-      ? (workspacePricing || []).map((row) => ({
-          item_key: row.description || row.normalized_key,
-          aliases: null,
-          category: null,
-          unit: row.unit,
-        }))
-      : pricingCatalog || [];
+    const catalogDefaults = pricingCatalog || [];
+    const customerCatalog =
+      hasCustomerPricing && customerPricing
+        ? customerPricing.map((row) => ({
+            item_key: row.description || row.normalized_key,
+            aliases: null,
+            category: null,
+            unit: row.unit,
+          }))
+        : [];
+    const workspaceCatalog =
+      hasWorkspacePricing && workspacePricing
+        ? workspacePricing.map((row) => ({
+            item_key: row.description || row.normalized_key,
+            aliases: null,
+            category: null,
+            unit: row.unit,
+          }))
+        : [];
+
+    const catalogSource = (() => {
+      const seen = new Set<string>();
+      const merged: typeof catalogDefaults = [];
+      const catalogKey = (row: { item_key: string }) =>
+        normalizeCatalogKey(row.item_key);
+
+      [...customerCatalog, ...workspaceCatalog, ...catalogDefaults].forEach((row) => {
+        const key = catalogKey(row);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        merged.push(row);
+      });
+
+      return merged;
+    })();
 
     const catalogCandidates = catalogSource
       .map((row) => {
@@ -434,7 +453,6 @@ export async function POST(
     const { data: pricingMaterials, error: pricingError } = await serviceClient
       .from('pricing_materials')
       .select('item_key, unit_price, aliases')
-      .eq('workspace_id', job.workspace_id)
       .eq('trade', promptResult.trade);
 
     if (pricingError) {
