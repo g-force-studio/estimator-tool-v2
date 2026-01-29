@@ -511,3 +511,17 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Set `IMPORT_TOKEN` in Netlify and redeploy
     - [ ] Import pricing CSV using `/api/pricing-materials/import` with x-import-token
     - [ ] Re-run Netlify build to confirm no TypeScript errors
+- Date/Time (2026-01-29 12:20), Session Goal: Improve pricing fallback and matching for global defaults
+  - What changed:
+    - Merged global default pricing with workspace/customer overrides in estimate pipeline
+    - Allowed general_contractor to pull default pricing across all trades
+    - Improved alias matching by splitting on semicolons and normalizing snake_case tokens
+  - Decisions made:
+    - Keep override priority (customer → workspace → default) while filling missing prices from defaults
+    - Keep overrides trade-scoped; only defaults are cross-trade for general_contractor
+  - Open questions / risks:
+    - AI outputs still include SKU/part-number wording, causing missing pricing matches
+    - Catalog size may degrade fuzzy matching accuracy without tighter thresholds
+  - Next actions:
+    - [ ] Update prompt templates to force human-readable material names (no SKUs unless in catalog)
+    - [ ] Re-test estimates after prompt change; consider stricter matching if still off

@@ -1,29 +1,25 @@
 Current focus:
-- Get Netlify build green after schema/type sync.
-- Import workspace pricing via import token.
+- Fix AI output wording to use catalog-friendly, human-readable material names.
+- Re-test pricing accuracy with global defaults + overrides.
 
 What's working:
-- Customer-aware prompt selection with overrides.
-- Pricing fallback order (customer → workspace → default) with median pricing.
-- CSV import endpoint with batch insert and import-token auth.
+- Default pricing now merges with workspace/customer overrides (customer → workspace → default).
+- General contractor trade pulls default pricing across all trades.
+- Alias matching improved (semicolon split + snake_case normalization).
 
 What's broken / pending:
-- Netlify needs IMPORT_TOKEN env and redeploy.
-- Migration for customers/workspace_pricing_materials must be applied.
-- job.customer_id still needs population flow.
+- AI still emits SKU/part-number style items, leading to missing or incorrect pricing matches.
+- Matching accuracy may degrade with large catalogs without tighter thresholds.
 
 Latest files touched:
-- app/api/pricing-materials/import/route.ts
 - app/api/jobs/[id]/estimate/route.ts
-- app/home-content.tsx
-- app/jobs/[id]/page.tsx
-- supabase/schema.sql
-- lib/supabase/database.types.ts
+- NOTES.md
+- code_state.txt
 
 Commands to run locally:
 - npm run build
 
 Next 3 concrete steps:
-1) Apply supabase/migrations/20260128_add_customers_and_workspace_pricing_materials.sql.
-2) Set IMPORT_TOKEN in Netlify and redeploy.
-3) Import pricing CSV with x-import-token + workspace_id and verify estimates.
+1) Update prompt_templates (plumbing + general_contractor) to require human-readable material names.
+2) Re-run estimate to verify pricing accuracy after prompt change.
+3) If still off, tighten fuzzy matching (brand token drop + stronger overlap threshold).
