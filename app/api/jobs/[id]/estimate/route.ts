@@ -470,6 +470,7 @@ export async function POST(
     const priceLookup = new Map<string, number>();
     const normalizeKey = (value: string) =>
       value
+        .replace(/_/g, ' ')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
         .trim()
@@ -504,7 +505,7 @@ export async function POST(
       if (baseKey) priceLookup.set(baseKey, price);
       if (typeof material.aliases === 'string') {
         material.aliases
-          .split(',')
+          .split(/[;,]/)
           .map((alias) => normalizeKey(alias))
           .filter(Boolean)
           .forEach((alias) => priceLookup.set(alias, price));
