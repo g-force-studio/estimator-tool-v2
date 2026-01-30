@@ -89,6 +89,7 @@ export function HomeContent({ workspaceId: _workspaceId }: { workspaceId: string
     event.preventDefault();
     event.stopPropagation();
     const isIos = isIosBrowser();
+    const popup = null;
 
     try {
       if (job.pdf_url) {

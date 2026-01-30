@@ -54,17 +54,6 @@ CREATE TABLE workspace_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Customers table (workspace-scoped)
-CREATE TABLE customers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX customers_workspace_idx ON customers(workspace_id);
-
 -- Workspace invites table
 CREATE TABLE workspace_invites (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -122,15 +111,12 @@ CREATE TABLE jobs (
   )) DEFAULT 'draft',
   due_date DATE,
   client_name TEXT,
-  customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
   description_md TEXT,
   template_id UUID REFERENCES templates(id),
   labor_rate NUMERIC,
   totals_json JSONB,
   pdf_url TEXT,
   error_message TEXT,
-  estimate_status TEXT,
-  estimated_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -219,7 +205,6 @@ CREATE INDEX packages_slug_idx ON packages(public_slug);
 CREATE TABLE ai_reference_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
   trade TEXT NOT NULL CHECK (trade IN ('plumbing', 'electrical', 'hvac', 'general_contractor')),
   name TEXT NOT NULL,
   system_prompt TEXT NOT NULL,
@@ -230,8 +215,6 @@ CREATE TABLE ai_reference_configs (
 
 CREATE INDEX ai_reference_configs_workspace_id_idx ON ai_reference_configs(workspace_id);
 CREATE INDEX ai_reference_configs_workspace_trade_idx ON ai_reference_configs(workspace_id, trade);
-CREATE UNIQUE INDEX ai_reference_configs_workspace_customer_unique
-  ON ai_reference_configs(workspace_id, customer_id);
 CREATE UNIQUE INDEX ai_reference_configs_one_default_per_workspace
   ON ai_reference_configs(workspace_id)
   WHERE is_default = TRUE;
@@ -266,26 +249,6 @@ CREATE TABLE template_catalog (
 );
 
 CREATE INDEX template_catalog_workspace_id_idx ON template_catalog(workspace_id);
-
--- Workspace pricing materials table (custom + customer overrides)
-CREATE TABLE workspace_pricing_materials (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
-  trade TEXT NOT NULL CHECK (trade IN ('plumbing', 'electrical', 'hvac', 'general_contractor')),
-  description TEXT NOT NULL,
-  normalized_key TEXT NOT NULL,
-  unit TEXT,
-  unit_cost NUMERIC NOT NULL,
-  source TEXT NOT NULL DEFAULT 'upload',
-  source_job_id UUID REFERENCES jobs(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX workspace_pricing_materials_workspace_idx ON workspace_pricing_materials(workspace_id);
-CREATE INDEX workspace_pricing_materials_customer_idx ON workspace_pricing_materials(customer_id);
-CREATE INDEX workspace_pricing_materials_norm_idx ON workspace_pricing_materials(workspace_id, trade, normalized_key);
 
 -- ============================================================================
 -- HELPER FUNCTIONS
@@ -343,8 +306,6 @@ CREATE TRIGGER update_workspace_brand_updated_at BEFORE UPDATE ON workspace_bran
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_workspace_settings_updated_at BEFORE UPDATE ON workspace_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON customers
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_jobs_updated_at BEFORE UPDATE ON jobs
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -356,8 +317,6 @@ CREATE TRIGGER update_templates_updated_at BEFORE UPDATE ON templates
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_ai_reference_configs_updated_at BEFORE UPDATE ON ai_reference_configs
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_workspace_pricing_materials_updated_at BEFORE UPDATE ON workspace_pricing_materials
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_template_catalog_updated_at BEFORE UPDATE ON template_catalog
@@ -372,7 +331,6 @@ ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_brand ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workspace_invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trial_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
@@ -385,7 +343,6 @@ ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_reference_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prompt_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE template_catalog ENABLE ROW LEVEL SECURITY;
-ALTER TABLE workspace_pricing_materials ENABLE ROW LEVEL SECURITY;
 
 -- Workspaces policies
 CREATE POLICY "Users can view their workspace"
@@ -442,23 +399,6 @@ CREATE POLICY "Admins can create workspace settings"
 CREATE POLICY "Admins can update workspace settings"
   ON workspace_settings FOR UPDATE
   USING (is_admin_of(workspace_id));
-
--- Customers policies
-CREATE POLICY "Members can view customers"
-  ON customers FOR SELECT
-  USING (is_member_of(workspace_id));
-
-CREATE POLICY "Members can create customers"
-  ON customers FOR INSERT
-  WITH CHECK (is_member_of(workspace_id));
-
-CREATE POLICY "Members can update customers"
-  ON customers FOR UPDATE
-  USING (is_member_of(workspace_id));
-
-CREATE POLICY "Members can delete customers"
-  ON customers FOR DELETE
-  USING (is_member_of(workspace_id));
 
 -- Workspace invites policies
 CREATE POLICY "Admins can view workspace invites"
@@ -641,23 +581,6 @@ CREATE POLICY "Service role can insert AI reference configs"
 CREATE POLICY "Admins can update AI reference configs"
   ON ai_reference_configs FOR UPDATE
   USING (is_admin_of(workspace_id));
-
--- Workspace pricing materials policies
-CREATE POLICY "Members can view workspace pricing materials"
-  ON workspace_pricing_materials FOR SELECT
-  USING (is_member_of(workspace_id));
-
-CREATE POLICY "Members can create workspace pricing materials"
-  ON workspace_pricing_materials FOR INSERT
-  WITH CHECK (is_member_of(workspace_id));
-
-CREATE POLICY "Members can update workspace pricing materials"
-  ON workspace_pricing_materials FOR UPDATE
-  USING (is_member_of(workspace_id));
-
-CREATE POLICY "Members can delete workspace pricing materials"
-  ON workspace_pricing_materials FOR DELETE
-  USING (is_member_of(workspace_id));
 
 -- Prompt templates policies
 CREATE POLICY "Authenticated users can view prompt templates"

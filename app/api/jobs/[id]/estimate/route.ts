@@ -3,7 +3,6 @@ import { createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { hasAccess } from '@/lib/access';
 import { getWorkspacePrompt } from '@/lib/prompts';
-import type { Database } from '@/lib/supabase/database.types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const DRAFT_MODEL = 'gpt-4.1-mini';
@@ -11,12 +10,6 @@ const DRAFT_MODEL = 'gpt-4.1-mini';
 type ImageAnalysis = { image_url: string; observations: string };
 type LaborLine = { task: string; hours: number };
 type MaterialLine = { item: string; qty: number; cost: number };
-type WorkspacePricingRow = {
-  normalized_key: string;
-  unit_cost: number;
-  description: string | null;
-  unit: string | null;
-};
 
 type JobItem = {
   type?: string;
@@ -99,7 +92,7 @@ GOAL
 PRICING RULES (STRICT)
 - Do NOT invent material prices.
 - Set ALL "estimate.materials[].cost" values to 0.
-- The server will overwrite material pricing using workspace_pricing_materials (customer override, then workspace) or pricing_materials.
+- The server will overwrite material pricing using pricing_materials for the workspace and trade.
 - If you are unsure about an item name, still include it and add a note in estimate.jobNotes: "MISSING PRICE: <item>".
 
 OUTPUT FORMAT (JSON ONLY)
@@ -136,7 +129,7 @@ RULES
 async function safeJobUpdate(
   serviceClient: ReturnType<typeof createServiceClient>,
   jobId: string,
-  patch: Database['public']['Tables']['jobs']['Update']
+  patch: Record<string, any>
 ) {
   try {
     const { error } = await serviceClient.from('jobs').update(patch).eq('id', jobId);
@@ -266,12 +259,7 @@ export async function POST(
         quantity: item.content_json?.quantity ?? 0,
       }));
 
-    const customerId = job.customer_id ?? null;
-    const promptResult = await getWorkspacePrompt(
-      job.workspace_id,
-      'general_contractor',
-      customerId
-    );
+    const promptResult = await getWorkspacePrompt(job.workspace_id, 'general_contractor');
     const systemPrompt = promptResult.systemPrompt ?? fallbackSystemPrompt;
 
     const normalizeCatalogKey = (value: string) =>
@@ -292,70 +280,13 @@ export async function POST(
 
     const catalogTokens = new Set(catalogQueryText.split(' ').filter((token) => token.length >= 3));
 
-    const { data: customerPricing } = customerId
-      ? await serviceClient
-          .from('workspace_pricing_materials')
-          .select('normalized_key, unit_cost, description, unit')
-          .eq('workspace_id', job.workspace_id)
-          .eq('trade', promptResult.trade)
-          .eq('customer_id', customerId)
-      : { data: [] as WorkspacePricingRow[] };
-
-    const { data: workspacePricing } = await serviceClient
-      .from('workspace_pricing_materials')
-      .select('normalized_key, unit_cost, description, unit')
-      .eq('workspace_id', job.workspace_id)
-      .eq('trade', promptResult.trade)
-      .is('customer_id', null);
-
-    const hasCustomerPricing = (customerPricing?.length ?? 0) > 0;
-    const hasWorkspacePricing = (workspacePricing?.length ?? 0) > 0;
-
-    const pricingCatalogQuery = serviceClient
+    const { data: pricingCatalog } = await serviceClient
       .from('pricing_materials')
-      .select('item_key, aliases, category, unit');
-    const { data: pricingCatalog } =
-      promptResult.trade === 'general_contractor'
-        ? await pricingCatalogQuery
-        : await pricingCatalogQuery.eq('trade', promptResult.trade);
+      .select('item_key, aliases, category, unit')
+      .eq('workspace_id', job.workspace_id)
+      .eq('trade', promptResult.trade);
 
-    const catalogDefaults = pricingCatalog || [];
-    const customerCatalog =
-      hasCustomerPricing && customerPricing
-        ? customerPricing.map((row) => ({
-            item_key: row.description || row.normalized_key,
-            aliases: null,
-            category: null,
-            unit: row.unit,
-          }))
-        : [];
-    const workspaceCatalog =
-      hasWorkspacePricing && workspacePricing
-        ? workspacePricing.map((row) => ({
-            item_key: row.description || row.normalized_key,
-            aliases: null,
-            category: null,
-            unit: row.unit,
-          }))
-        : [];
-
-    const catalogSource = (() => {
-      const seen = new Set<string>();
-      const merged: typeof catalogDefaults = [];
-      const catalogKey = (row: { item_key: string }) =>
-        normalizeCatalogKey(row.item_key);
-
-      [...customerCatalog, ...workspaceCatalog, ...catalogDefaults].forEach((row) => {
-        const key = catalogKey(row);
-        if (!key || seen.has(key)) return;
-        seen.add(key);
-        merged.push(row);
-      });
-
-      return merged;
-    })();
-
-    const catalogCandidates = catalogSource
+    const catalogCandidates = (pricingCatalog || [])
       .map((row) => {
         const searchable = normalizeCatalogKey(
           [row.item_key, row.aliases || '', row.category || ''].join(' ')
@@ -453,59 +384,30 @@ export async function POST(
         }))
       : [];
 
-    const pricingMaterialsQuery = serviceClient
+    const { data: pricingMaterials, error: pricingError } = await serviceClient
       .from('pricing_materials')
-      .select('item_key, unit_price, aliases');
-    const { data: pricingMaterials, error: pricingError } =
-      promptResult.trade === 'general_contractor'
-        ? await pricingMaterialsQuery
-        : await pricingMaterialsQuery.eq('trade', promptResult.trade);
+      .select('item_key, unit_price, aliases')
+      .eq('workspace_id', job.workspace_id)
+      .eq('trade', promptResult.trade);
 
     if (pricingError) {
       console.error('Pricing materials fetch error:', pricingError);
     }
 
-    const customerPriceLookup = new Map<string, number>();
-    const workspacePriceLookup = new Map<string, number>();
     const priceLookup = new Map<string, number>();
     const normalizeKey = (value: string) =>
       value
-        .replace(/_/g, ' ')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
         .trim()
         .replace(/\s+/g, ' ');
-    const buildMedianLookup = (rows: WorkspacePricingRow[], target: Map<string, number>) => {
-      const buckets = new Map<string, number[]>();
-      rows.forEach((row) => {
-        const key = normalizeKey(row.normalized_key || row.description || '');
-        const cost = Number(row.unit_cost ?? 0);
-        if (!key || !Number.isFinite(cost)) return;
-        const list = buckets.get(key) ?? [];
-        list.push(cost);
-        buckets.set(key, list);
-      });
-      buckets.forEach((values, key) => {
-        values.sort((a, b) => a - b);
-        const mid = Math.floor(values.length / 2);
-        const median =
-          values.length % 2 === 0
-            ? (values[mid - 1] + values[mid]) / 2
-            : values[mid];
-        target.set(key, median);
-      });
-    };
-
-    buildMedianLookup(customerPricing || [], customerPriceLookup);
-    buildMedianLookup(workspacePricing || [], workspacePriceLookup);
-
     (pricingMaterials || []).forEach((material) => {
       const price = Number(material.unit_price ?? 0);
       const baseKey = normalizeKey(material.item_key);
       if (baseKey) priceLookup.set(baseKey, price);
       if (typeof material.aliases === 'string') {
         material.aliases
-          .split(/[;,]/)
+          .split(',')
           .map((alias) => normalizeKey(alias))
           .filter(Boolean)
           .forEach((alias) => priceLookup.set(alias, price));
@@ -518,13 +420,13 @@ export async function POST(
         .map((token) => token.trim())
         .filter((token) => token.length >= 3);
 
-    const findBestMatch = (lookup: Map<string, number>, key: string) => {
-      const direct = lookup.get(key);
+    const findUnitPrice = (key: string) => {
+      const direct = priceLookup.get(key);
       if (typeof direct === 'number') return direct;
 
       const keyTokens = tokenize(key);
       let bestMatch: { key: string; price: number; score: number } | null = null;
-      for (const [priceKey, price] of lookup.entries()) {
+      for (const [priceKey, price] of priceLookup.entries()) {
         if (!priceKey) continue;
         if (key.includes(priceKey) || priceKey.includes(key)) {
           const score = priceKey.length;
@@ -547,11 +449,6 @@ export async function POST(
 
       return bestMatch?.price;
     };
-
-    const findUnitPrice = (key: string) =>
-      findBestMatch(customerPriceLookup, key) ??
-      findBestMatch(workspacePriceLookup, key) ??
-      findBestMatch(priceLookup, key);
 
     const pricedMaterials = materials.map((item) => {
       const key = normalizeKey(item.item);

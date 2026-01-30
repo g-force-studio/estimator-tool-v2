@@ -1,5 +1,4 @@
 node_modules
-.project_notes
 .next
 .env*.local
 .DS_Store
@@ -11,4 +10,3 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 supabase/.temp/
-supabase/general-contractor-materials-Table.csv

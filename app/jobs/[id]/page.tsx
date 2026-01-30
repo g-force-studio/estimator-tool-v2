@@ -261,7 +261,7 @@ export default function JobDetailPage() {
     };
 
     loadJob();
-  }, [jobId, isOnline, refreshJob, refreshAiOutput, applyJobToForm]);
+  }, [jobId, isOnline, refreshJob, refreshAiOutput]);
 
   useEffect(() => {
     if (job?.job_items) {
