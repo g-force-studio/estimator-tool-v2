@@ -12,3 +12,6 @@ next-env.d.ts
 supabase/.temp/
 supabase/general-contractor-materials-Table.csv
 project_notes/
+
+# Local Netlify folder
+.netlify

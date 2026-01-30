@@ -314,7 +314,6 @@ export async function POST(
     const { data: pricingCatalog } = await serviceClient
       .from('pricing_materials')
       .select('item_key, aliases, category, unit')
-      .eq('workspace_id', job.workspace_id)
       .eq('trade', promptResult.trade);
 
     const catalogSource = hasCustomerPricing
@@ -434,7 +433,6 @@ export async function POST(
     const { data: pricingMaterials, error: pricingError } = await serviceClient
       .from('pricing_materials')
       .select('item_key, unit_price, aliases')
-      .eq('workspace_id', job.workspace_id)
       .eq('trade', promptResult.trade);
 
     if (pricingError) {
