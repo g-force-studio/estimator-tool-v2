@@ -474,3 +474,23 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Deploy updated generate-pdf Edge Function
     - [ ] Re-run estimate to apply catalog retrieval and pricing match changes
     - [ ] Verify material pricing aligns with catalog after re-submit
+- Date/Time (2026-01-30 06:34), Session Goal: Revert to stable estimate behavior and selectively reapply features
+  - What changed:
+    - Created backup branch `backup_pre_revert_20260129_1225` to preserve pre-revert state
+    - Reverted codebase to commit 19530fb via revert commit (history preserved)
+    - Re-applied customer + workspace pricing override logic (cba830f) but removed pricing import API endpoint
+    - Re-applied lint cleanup (9a56a81)
+    - Re-applied alias cleanup (split commas/semicolons) and snake_case normalization for pricing matching
+    - Removed MISSING PRICE prompt instruction; replaced with human-readable wording guidance
+    - Added `project_notes/` to .gitignore; removed comparison file
+  - Decisions made:
+    - Keep current state recoverable via backup branch instead of hard reset
+    - Exclude pricing import API endpoint while retaining customer/override schema and logic
+  - Open questions / risks:
+    - Large catalog (20k+ rows) may still reduce matching accuracy
+    - Prompt templates still need updates to suppress SKU/part-number outputs
+    - Optional commit 0ada82c (GC cross-trade defaults) may be reintroduced if needed
+  - Next actions:
+    - [ ] Update prompt_templates (plumbing + general_contractor) to enforce human-readable material names
+    - [ ] Re-run estimate to validate pricing accuracy on curated data
+    - [ ] Consider narrowing catalog or adding stricter matching thresholds if still off
