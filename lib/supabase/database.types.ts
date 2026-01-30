@@ -383,6 +383,8 @@ export interface Database {
           totals_json: Json | null
           pdf_url: string | null
           error_message: string | null
+          estimate_status: string | null
+          estimated_at: string | null
           created_at: string
           updated_at: string
         }
@@ -408,6 +410,8 @@ export interface Database {
           totals_json?: Json | null
           pdf_url?: string | null
           error_message?: string | null
+          estimate_status?: string | null
+          estimated_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -433,6 +437,8 @@ export interface Database {
           totals_json?: Json | null
           pdf_url?: string | null
           error_message?: string | null
+          estimate_status?: string | null
+          estimated_at?: string | null
           created_at?: string
           updated_at?: string
         }
