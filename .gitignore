@@ -11,3 +11,4 @@ yarn-error.log*
 next-env.d.ts
 supabase/.temp/
 supabase/general-contractor-materials-Table.csv
+project_notes/

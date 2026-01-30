@@ -100,7 +100,7 @@ PRICING RULES (STRICT)
 - Do NOT invent material prices.
 - Set ALL "estimate.materials[].cost" values to 0.
 - The server will overwrite material pricing using workspace_pricing_materials (customer override, then workspace) or pricing_materials.
-- If you are unsure about an item name, still include it and add a note in estimate.jobNotes: "MISSING PRICE: <item>".
+ - If you are unsure about an item name, still include it using a clear, human-readable description.
 
 OUTPUT FORMAT (JSON ONLY)
 Return exactly one JSON object with this shape and no extra keys:
@@ -446,6 +446,7 @@ export async function POST(
     const priceLookup = new Map<string, number>();
     const normalizeKey = (value: string) =>
       value
+        .replace(/_/g, ' ')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
         .trim()
@@ -480,7 +481,7 @@ export async function POST(
       if (baseKey) priceLookup.set(baseKey, price);
       if (typeof material.aliases === 'string') {
         material.aliases
-          .split(',')
+          .split(/[;,]/)
           .map((alias) => normalizeKey(alias))
           .filter(Boolean)
           .forEach((alias) => priceLookup.set(alias, price));
