@@ -19,6 +19,7 @@ export interface Database {
           default_ai_reference_config_id: string | null
           subscription_status: 'active' | 'trialing' | 'inactive' | 'canceled' | 'past_due'
           trial_ends_at: string | null
+          workspace_pricing_id: string | null
         }
         Insert: {
           id?: string
@@ -29,6 +30,7 @@ export interface Database {
           default_ai_reference_config_id?: string | null
           subscription_status?: 'active' | 'trialing' | 'inactive' | 'canceled' | 'past_due'
           trial_ends_at?: string | null
+          workspace_pricing_id?: string | null
         }
         Update: {
           id?: string
@@ -39,6 +41,7 @@ export interface Database {
           default_ai_reference_config_id?: string | null
           subscription_status?: 'active' | 'trialing' | 'inactive' | 'canceled' | 'past_due'
           trial_ends_at?: string | null
+          workspace_pricing_id?: string | null
         }
         Relationships: []
       }
@@ -268,6 +271,7 @@ export interface Database {
         Row: {
           id: string
           workspace_id: string
+          workspace_pricing_id: string | null
           customer_id: string | null
           trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
           description: string
@@ -282,6 +286,7 @@ export interface Database {
         Insert: {
           id?: string
           workspace_id: string
+          workspace_pricing_id?: string | null
           customer_id?: string | null
           trade: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
           description: string
@@ -296,6 +301,7 @@ export interface Database {
         Update: {
           id?: string
           workspace_id?: string
+          workspace_pricing_id?: string | null
           customer_id?: string | null
           trade?: 'plumbing' | 'electrical' | 'hvac' | 'general_contractor'
           description?: string

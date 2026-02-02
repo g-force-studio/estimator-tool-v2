@@ -223,6 +223,19 @@ export async function POST(
     const markupPercent = Number(settings?.markup_percent ?? 0);
     const hourlyRate = Number(settings?.hourly_rate ?? 0);
 
+    let workspacePricingId: string | null = null;
+    const { data: workspaceData, error: workspaceError } = await serviceClient
+      .from('workspaces')
+      .select('workspace_pricing_id')
+      .eq('id', job.workspace_id)
+      .single();
+
+    if (workspaceError && workspaceError.code !== 'PGRST116') {
+      console.error('Workspace pricing lookup error:', workspaceError);
+    } else {
+      workspacePricingId = workspaceData?.workspace_pricing_id ?? null;
+    }
+
     // Job files (photos)
     const { data: jobFiles, error: filesError } = await supabase
       .from('job_files')
@@ -292,21 +305,27 @@ export async function POST(
 
     const catalogTokens = new Set(catalogQueryText.split(' ').filter((token) => token.length >= 3));
 
-    const { data: customerPricing } = customerId
+    const shouldUseWorkspacePricing = Boolean(workspacePricingId);
+
+    const { data: customerPricing } = customerId && shouldUseWorkspacePricing
       ? await serviceClient
           .from('workspace_pricing_materials')
           .select('normalized_key, unit_cost, description, unit')
           .eq('workspace_id', job.workspace_id)
+          .eq('workspace_pricing_id', workspacePricingId)
           .eq('trade', promptResult.trade)
           .eq('customer_id', customerId)
       : { data: [] as WorkspacePricingRow[] };
 
-    const { data: workspacePricing } = await serviceClient
-      .from('workspace_pricing_materials')
-      .select('normalized_key, unit_cost, description, unit')
-      .eq('workspace_id', job.workspace_id)
-      .eq('trade', promptResult.trade)
-      .is('customer_id', null);
+    const { data: workspacePricing } = shouldUseWorkspacePricing
+      ? await serviceClient
+          .from('workspace_pricing_materials')
+          .select('normalized_key, unit_cost, description, unit')
+          .eq('workspace_id', job.workspace_id)
+          .eq('workspace_pricing_id', workspacePricingId)
+          .eq('trade', promptResult.trade)
+          .is('customer_id', null)
+      : { data: [] as WorkspacePricingRow[] };
 
     const hasCustomerPricing = (customerPricing?.length ?? 0) > 0;
     const hasWorkspacePricing = (workspacePricing?.length ?? 0) > 0;

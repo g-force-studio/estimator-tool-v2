@@ -17,6 +17,7 @@ CREATE TABLE workspaces (
   subscription_status TEXT NOT NULL DEFAULT 'inactive'
     CHECK (subscription_status IN ('active', 'trialing', 'inactive', 'canceled', 'past_due')),
   trial_ends_at TIMESTAMPTZ,
+  workspace_pricing_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -271,6 +272,7 @@ CREATE INDEX template_catalog_workspace_id_idx ON template_catalog(workspace_id)
 CREATE TABLE workspace_pricing_materials (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  workspace_pricing_id UUID,
   customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
   trade TEXT NOT NULL CHECK (trade IN ('plumbing', 'electrical', 'hvac', 'general_contractor')),
   description TEXT NOT NULL,
@@ -284,6 +286,7 @@ CREATE TABLE workspace_pricing_materials (
 );
 
 CREATE INDEX workspace_pricing_materials_workspace_idx ON workspace_pricing_materials(workspace_id);
+CREATE INDEX workspace_pricing_materials_pricing_id_idx ON workspace_pricing_materials(workspace_pricing_id);
 CREATE INDEX workspace_pricing_materials_customer_idx ON workspace_pricing_materials(customer_id);
 CREATE INDEX workspace_pricing_materials_norm_idx ON workspace_pricing_materials(workspace_id, trade, normalized_key);
 
