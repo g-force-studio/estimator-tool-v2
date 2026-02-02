@@ -308,25 +308,30 @@ export async function POST(
     const pricingId = workspacePricingId ?? null;
     const shouldUseWorkspacePricing = Boolean(pricingId);
 
-    const { data: customerPricing } = customerId && shouldUseWorkspacePricing
-      ? await serviceClient
-          .from('workspace_pricing_materials')
-          .select('normalized_key, unit_cost, description, unit')
-          .eq('workspace_id', job.workspace_id)
-          .eq('workspace_pricing_id', pricingId)
-          .eq('trade', promptResult.trade)
-          .eq('customer_id', customerId)
-      : { data: [] as WorkspacePricingRow[] };
+    let customerPricing: WorkspacePricingRow[] = [];
+    let workspacePricing: WorkspacePricingRow[] = [];
 
-    const { data: workspacePricing } = shouldUseWorkspacePricing
-      ? await serviceClient
+    if (shouldUseWorkspacePricing && pricingId) {
+      if (customerId) {
+        const { data } = await serviceClient
           .from('workspace_pricing_materials')
           .select('normalized_key, unit_cost, description, unit')
           .eq('workspace_id', job.workspace_id)
           .eq('workspace_pricing_id', pricingId)
           .eq('trade', promptResult.trade)
-          .is('customer_id', null)
-      : { data: [] as WorkspacePricingRow[] };
+          .eq('customer_id', customerId);
+        customerPricing = data || [];
+      }
+
+      const { data } = await serviceClient
+        .from('workspace_pricing_materials')
+        .select('normalized_key, unit_cost, description, unit')
+        .eq('workspace_id', job.workspace_id)
+        .eq('workspace_pricing_id', pricingId)
+        .eq('trade', promptResult.trade)
+        .is('customer_id', null);
+      workspacePricing = data || [];
+    }
 
     const hasCustomerPricing = (customerPricing?.length ?? 0) > 0;
     const hasWorkspacePricing = (workspacePricing?.length ?? 0) > 0;
