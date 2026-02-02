@@ -305,14 +305,15 @@ export async function POST(
 
     const catalogTokens = new Set(catalogQueryText.split(' ').filter((token) => token.length >= 3));
 
-    const shouldUseWorkspacePricing = Boolean(workspacePricingId);
+    const pricingId = workspacePricingId ?? null;
+    const shouldUseWorkspacePricing = Boolean(pricingId);
 
     const { data: customerPricing } = customerId && shouldUseWorkspacePricing
       ? await serviceClient
           .from('workspace_pricing_materials')
           .select('normalized_key, unit_cost, description, unit')
           .eq('workspace_id', job.workspace_id)
-          .eq('workspace_pricing_id', workspacePricingId)
+          .eq('workspace_pricing_id', pricingId)
           .eq('trade', promptResult.trade)
           .eq('customer_id', customerId)
       : { data: [] as WorkspacePricingRow[] };
@@ -322,7 +323,7 @@ export async function POST(
           .from('workspace_pricing_materials')
           .select('normalized_key, unit_cost, description, unit')
           .eq('workspace_id', job.workspace_id)
-          .eq('workspace_pricing_id', workspacePricingId)
+          .eq('workspace_pricing_id', pricingId)
           .eq('trade', promptResult.trade)
           .is('customer_id', null)
       : { data: [] as WorkspacePricingRow[] };
