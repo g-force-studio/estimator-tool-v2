@@ -236,6 +236,16 @@ export async function POST(
       workspacePricingId = workspaceData?.workspace_pricing_id ?? null;
     }
 
+    if (debug) {
+      console.log('Estimate debug context', {
+        job_id: jobId,
+        workspace_id: job.workspace_id,
+        customer_id: job.customer_id,
+        trade: promptResult.trade,
+        workspace_pricing_id: workspacePricingId,
+      });
+    }
+
     // Job files (photos)
     const { data: jobFiles, error: filesError } = await supabase
       .from('job_files')
@@ -464,6 +474,16 @@ export async function POST(
       console.error('Pricing materials fetch error:', pricingError);
     }
 
+    if (debug) {
+      console.log('Estimate debug pricing counts', {
+        line_items: lineItems.length,
+        customer_pricing: customerPricing.length,
+        workspace_pricing: workspacePricing.length,
+        pricing_catalog: (pricingCatalog || []).length,
+        pricing_materials: (pricingMaterials || []).length,
+      });
+    }
+
     const customerPriceLookup = new Map<string, number>();
     const workspacePriceLookup = new Map<string, number>();
     const priceLookup = new Map<string, number>();
@@ -552,14 +572,44 @@ export async function POST(
       findBestMatch(workspacePriceLookup, key) ??
       findBestMatch(priceLookup, key);
 
+    const findUnitPriceWithSource = (key: string) => {
+      const customerPrice = findBestMatch(customerPriceLookup, key);
+      if (typeof customerPrice === 'number') {
+        return { price: customerPrice, source: 'customer' as const };
+      }
+      const workspacePrice = findBestMatch(workspacePriceLookup, key);
+      if (typeof workspacePrice === 'number') {
+        return { price: workspacePrice, source: 'workspace' as const };
+      }
+      const catalogPrice = findBestMatch(priceLookup, key);
+      if (typeof catalogPrice === 'number') {
+        return { price: catalogPrice, source: 'catalog' as const };
+      }
+      return { price: undefined, source: 'none' as const };
+    };
+
+    const matchSources: string[] = [];
     const pricedMaterials = materials.map((item) => {
       const key = normalizeKey(item.item);
-      const unitPrice = key ? findUnitPrice(key) : undefined;
+      const match = key ? findUnitPriceWithSource(key) : { price: undefined, source: 'none' as const };
+      matchSources.push(match.source);
+      const unitPrice = match.price;
       return {
         ...item,
         cost: Number.isFinite(unitPrice) ? Number(unitPrice) : 0,
       };
     });
+
+    if (debug) {
+      const matchCounts = matchSources.reduce(
+        (acc, source) => {
+          acc[source] = (acc[source] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+      console.log('Estimate debug pricing match sources', matchCounts);
+    }
 
     const normalizedLabor = labor.map((item) => {
       const total = roundToHalf(item.hours * hourlyRate);
