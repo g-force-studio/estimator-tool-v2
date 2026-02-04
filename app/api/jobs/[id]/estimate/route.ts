@@ -236,16 +236,6 @@ export async function POST(
       workspacePricingId = workspaceData?.workspace_pricing_id ?? null;
     }
 
-    if (debug) {
-      console.log('Estimate debug context', {
-        job_id: jobId,
-        workspace_id: job.workspace_id,
-        customer_id: job.customer_id,
-        trade: promptResult.trade,
-        workspace_pricing_id: workspacePricingId,
-      });
-    }
-
     // Job files (photos)
     const { data: jobFiles, error: filesError } = await supabase
       .from('job_files')
@@ -296,6 +286,16 @@ export async function POST(
       customerId
     );
     const systemPrompt = promptResult.systemPrompt ?? fallbackSystemPrompt;
+
+    if (debug) {
+      console.log('Estimate debug context', {
+        job_id: jobId,
+        workspace_id: job.workspace_id,
+        customer_id: job.customer_id,
+        trade: promptResult.trade,
+        workspace_pricing_id: workspacePricingId,
+      });
+    }
 
     const normalizeCatalogKey = (value: string) =>
       value
@@ -566,11 +566,6 @@ export async function POST(
 
       return bestMatch?.price;
     };
-
-    const findUnitPrice = (key: string) =>
-      findBestMatch(customerPriceLookup, key) ??
-      findBestMatch(workspacePriceLookup, key) ??
-      findBestMatch(priceLookup, key);
 
     const findUnitPriceWithSource = (key: string) => {
       const customerPrice = findBestMatch(customerPriceLookup, key);
