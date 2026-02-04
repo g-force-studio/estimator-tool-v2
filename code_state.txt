@@ -1,24 +1,24 @@
 Current focus:
-- Restore accurate estimates with human-readable material names and clean pricing matches.
-- Update prompt templates to discourage SKU/part-number outputs.
+- Restore accurate pricing and eliminate duplicates after resubmits using workspace_pricing_id with safe fallbacks.
+- Use debug logs to pinpoint pricing source and matching failures.
 
 What's working:
-- Code reverted to 19530fb baseline with selective features reapplied.
-- Customer/workspace pricing overrides remain (pricing import API removed).
-- Alias matching handles commas/semicolons; snake_case normalization added.
-- MISSING PRICE instruction removed from estimate prompt.
+- Pricing_materials now acts as a global fallback when workspace_pricing_id is unset.
+- workspace_pricing_id routing exists in estimate flow (customer override -> workspace -> global).
+- Schema/types updated and migration added for workspace_pricing_id fields.
+- Build issues from nullable pricing ID and debug logging order resolved.
 
 What's broken / pending:
-- Prompt templates still allow SKU/part-number wording.
-- Large catalog (20k+ rows) may reduce matching accuracy.
+- Pricing still not populating for the reported job; root cause pending debug logs.
+- No dedupe or pricing sanity checks yet; duplicates and factor-of-10 errors remain.
 
 Latest files touched:
 - app/api/jobs/[id]/estimate/route.ts
-- app/api/customers/route.ts
-- app/api/jobs/[id]/customer/route.ts
-- lib/prompts.ts
 - supabase/schema.sql
+- supabase/migrations/20260202_add_workspace_pricing_id.sql
+- lib/supabase/database.types.ts
 - .gitignore
+- deno.lock
 - NOTES.md
 - code_state.txt
 
@@ -26,6 +26,6 @@ Commands to run locally:
 - npm run build
 
 Next 3 concrete steps:
-1) Update prompt_templates (plumbing + general_contractor) to enforce human-readable material names.
-2) Re-run estimate with curated pricing data and verify line item descriptions.
-3) If still off, tighten matching thresholds or reduce catalog size.
+1) Re-submit estimate with ?debug=1 and capture logs.
+2) Implement deterministic dedupe of AI items vs user line items.
+3) Add pricing sanity checks (unit mismatch / low confidence) and fallback handling.

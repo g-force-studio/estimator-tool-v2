@@ -494,3 +494,20 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Update prompt_templates (plumbing + general_contractor) to enforce human-readable material names
     - [ ] Re-run estimate to validate pricing accuracy on curated data
     - [ ] Consider narrowing catalog or adding stricter matching thresholds if still off
+- Date/Time (2026-02-04 00:00), Session Goal: Restore pricing flow and add workspace pricing catalog routing
+  - What changed:
+    - Added workspace_pricing_id to workspaces and workspace_pricing_materials in schema/types with migration
+    - Updated estimate route to use workspace_pricing_id-scoped pricing, fallback to pricing_materials when unset
+    - Removed workspace_id filter from pricing_materials (global catalog fallback)
+    - Added/adjusted estimate debug logging gated by ?debug=1
+    - Fixed nullable pricing ID query and debug log ordering
+    - Added .netlify to .gitignore and committed deno.lock
+  - Decisions made:
+    - Use workspace_pricing_id when set; fallback to global pricing_materials
+    - Keep customer overrides highest precedence
+  - Open questions / risks:
+    - Pricing still not populating; needs debug logs and potential dedupe/sanity-check changes
+  - Next actions:
+    - [ ] Run estimate with ?debug=1 and capture logs
+    - [ ] Implement dedupe of AI items vs user line items and pricing sanity checks
+    - [ ] Apply workspace_pricing_id migration in Supabase and seed workspace_pricing_materials if needed
