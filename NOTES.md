@@ -511,3 +511,13 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Run estimate with ?debug=1 and capture logs
     - [ ] Implement dedupe of AI items vs user line items and pricing sanity checks
     - [ ] Apply workspace_pricing_id migration in Supabase and seed workspace_pricing_materials if needed
+- Date/Time (2026-02-13 00:00), Session Goal: Update header branding order
+  - What changed:
+    - Swapped header lines to show workspace name as the title and RelayKit as the subtitle on Home/Jobs
+    - Hid the RelayKit subtitle when workspace name is empty
+  - Decisions made:
+    - Default header title to RelayKit when workspace name is unavailable
+  - Open questions / risks:
+    - None
+  - Next actions:
+    - [ ] Verify header display in Home and Jobs with/without workspace name

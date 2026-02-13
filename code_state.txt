@@ -1,24 +1,19 @@
 Current focus:
-- Restore accurate pricing and eliminate duplicates after resubmits using workspace_pricing_id with safe fallbacks.
-- Use debug logs to pinpoint pricing source and matching failures.
+- Restore accurate pricing (global fallback vs workspace pricing) and eliminate duplicates after resubmits.
+- Use estimate debug logs to confirm pricing branch selection and row counts.
 
 What's working:
-- Pricing_materials now acts as a global fallback when workspace_pricing_id is unset.
-- workspace_pricing_id routing exists in estimate flow (customer override -> workspace -> global).
-- Schema/types updated and migration added for workspace_pricing_id fields.
-- Build issues from nullable pricing ID and debug logging order resolved.
+- workspace_pricing_materials works when workspace_pricing_id is set and data is loaded.
+- workspace_pricing_id routing exists in estimate flow (customer override -> workspace -> global fallback).
+- Header now shows workspace name as title with RelayKit subtitle on Home/Jobs.
 
 What's broken / pending:
-- Pricing still not populating for the reported job; root cause pending debug logs.
-- No dedupe or pricing sanity checks yet; duplicates and factor-of-10 errors remain.
+- Global pricing fallback (pricing_materials) not populating when workspace_pricing_id is unset; root cause pending debug logs.
+- No dedupe or pricing sanity checks yet; duplicates and scale errors still possible.
 
 Latest files touched:
-- app/api/jobs/[id]/estimate/route.ts
-- supabase/schema.sql
-- supabase/migrations/20260202_add_workspace_pricing_id.sql
-- lib/supabase/database.types.ts
-- .gitignore
-- deno.lock
+- app/page.tsx
+- app/jobs/page.tsx
 - NOTES.md
 - code_state.txt
 
@@ -26,6 +21,6 @@ Commands to run locally:
 - npm run build
 
 Next 3 concrete steps:
-1) Re-submit estimate with ?debug=1 and capture logs.
-2) Implement deterministic dedupe of AI items vs user line items.
-3) Add pricing sanity checks (unit mismatch / low confidence) and fallback handling.
+1) Re-submit estimate with ?debug=1 and capture logs for workspace_pricing_id set/unset.
+2) Confirm workspace_pricing_id migration and data seeding in Supabase.
+3) Implement dedupe of AI items vs user line items and pricing sanity checks.

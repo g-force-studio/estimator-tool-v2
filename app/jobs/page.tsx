@@ -32,6 +32,7 @@ export default async function JobsPage() {
     isObject(member.workspaces) && typeof member.workspaces.name === 'string'
       ? member.workspaces.name
       : '';
+  const displayWorkspaceName = workspaceName || 'RelayKit';
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -40,8 +41,10 @@ export default async function JobsPage() {
           <div className="flex items-center gap-3">
             <WorkspaceLogo className="h-10 w-10 rounded-md object-contain" />
             <div>
-              <h1 className="text-2xl font-bold text-primary">Jobs</h1>
-              <p className="text-sm text-muted-foreground">{workspaceName}</p>
+              <h1 className="text-2xl font-bold text-primary">{displayWorkspaceName}</h1>
+              {workspaceName ? (
+                <p className="text-sm text-muted-foreground">RelayKit</p>
+              ) : null}
             </div>
           </div>
         </div>
