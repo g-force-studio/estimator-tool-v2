@@ -800,13 +800,15 @@ export default function JobDetailPage() {
                       const name = typeof item.item === 'string' ? item.item : 'Item';
                       const qty = toNumber(item.qty);
                       const cost = toNumber(item.cost);
+                      const pricingStatus =
+                        typeof item.pricing_status === 'string' ? item.pricing_status : null;
                       return (
                         <div key={`material-${index}`} className="flex items-start justify-between text-sm">
                           <div className="text-gray-700 dark:text-gray-300">
                             {name} <span className="text-xs text-gray-500 dark:text-gray-400">× {qty}</span>
                           </div>
                           <div className="text-gray-900 dark:text-white">
-                            ${(qty * cost).toFixed(2)}
+                            {pricingStatus === 'missing' ? 'Missing price' : `$${(qty * cost).toFixed(2)}`}
                           </div>
                         </div>
                       );

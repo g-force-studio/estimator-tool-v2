@@ -1,19 +1,23 @@
 Current focus:
-- Restore accurate pricing (global fallback vs workspace pricing) and eliminate duplicates after resubmits.
-- Use estimate debug logs to confirm pricing branch selection and row counts.
+- Move estimate generation to async worker with hybrid pricing retrieval.
+- Surface missing price cases for low confidence/timeouts.
 
 What's working:
-- workspace_pricing_materials works when workspace_pricing_id is set and data is loaded.
-- workspace_pricing_id routing exists in estimate flow (customer override -> workspace -> global fallback).
-- Header now shows workspace name as title with RelayKit subtitle on Home/Jobs.
+- Estimate submit now enqueues job and triggers Edge worker.
+- Hybrid search RPC defined (pgvector + trigram) for pricing candidates.
+- Missing price is displayed in UI and PDF for low confidence/timeouts.
 
 What's broken / pending:
-- Global pricing fallback (pricing_materials) not populating when workspace_pricing_id is unset; root cause pending debug logs.
-- No dedupe or pricing sanity checks yet; duplicates and scale errors still possible.
+- Migration + Edge Function deployment not yet applied.
+- Queue drain depends on worker trigger or external scheduler.
 
 Latest files touched:
-- app/page.tsx
-- app/jobs/page.tsx
+- app/api/jobs/[id]/estimate/route.ts
+- supabase/functions/estimate-worker/index.ts
+- supabase/migrations/20260217_add_estimate_queue_and_pricing_search.sql
+- app/jobs/[id]/page.tsx
+- supabase/functions/generate-pdf/index.ts
+- supabase/schema.sql
 - NOTES.md
 - code_state.txt
 
@@ -21,6 +25,6 @@ Commands to run locally:
 - npm run build
 
 Next 3 concrete steps:
-1) Re-submit estimate with ?debug=1 and capture logs for workspace_pricing_id set/unset.
-2) Confirm workspace_pricing_id migration and data seeding in Supabase.
-3) Implement dedupe of AI items vs user line items and pricing sanity checks.
+1) Apply supabase/migrations/20260217_add_estimate_queue_and_pricing_search.sql in Supabase.
+2) Deploy supabase/functions/estimate-worker and updated generate-pdf.
+3) Re-test Submit → AI → PDF flow and confirm missing price display.

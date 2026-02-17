@@ -148,10 +148,14 @@ serve(async (req) => {
   const lineItems = normalizeLineItems([
     ...legacyItems,
     ...materialItems.map((item) => ({
-      description: String(item.item ?? ''),
+      description:
+        String(item.item ?? '') +
+        (item.pricing_status === 'missing' ? ' (Missing price)' : ''),
       quantity: Number(item.qty ?? 0),
-      unit_price: Number(item.cost ?? 0),
-      total: Number(item.qty ?? 0) * Number(item.cost ?? 0),
+      unit_price: item.pricing_status === 'missing' ? 0 : Number(item.cost ?? 0),
+      total:
+        Number(item.qty ?? 0) *
+        (item.pricing_status === 'missing' ? 0 : Number(item.cost ?? 0)),
     })),
     ...laborItems.map((item) => ({
       description: String(item.task ?? ''),

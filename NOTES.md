@@ -521,3 +521,19 @@ Use this file to capture decisions, changes, and open questions after each worki
     - None
   - Next actions:
     - [ ] Verify header display in Home and Jobs with/without workspace name
+- Date/Time (2026-02-17 00:00), Session Goal: Add async estimate queue + hybrid pricing match
+  - What changed:
+    - Converted estimate submit to enqueue + trigger Edge worker (async processing)
+    - Added estimate queue table, dequeue RPC, and hybrid pricing search RPC (pgvector + trigram)
+    - Added new estimate-worker Edge Function to run AI + pricing match + PDF generation
+    - Added missing price surfacing in job UI and PDF output for low confidence/timeout
+  - Decisions made:
+    - Use async queue + Edge worker for scalable pricing matching
+    - Hybrid policy: mark low-confidence/timeout items as missing price
+  - Open questions / risks:
+    - Deploy estimate-worker and generate-pdf updates to Supabase Edge
+    - Apply migration to enable queue, extensions, embeddings, and RPCs
+  - Next actions:
+    - [ ] Apply supabase/migrations/20260217_add_estimate_queue_and_pricing_search.sql in Supabase
+    - [ ] Deploy supabase/functions/estimate-worker and updated generate-pdf
+    - [ ] Re-test Submit → AI → PDF flow and confirm missing price display
