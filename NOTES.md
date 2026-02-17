@@ -537,3 +537,12 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Apply supabase/migrations/20260217_add_estimate_queue_and_pricing_search.sql in Supabase
     - [ ] Deploy supabase/functions/estimate-worker and updated generate-pdf
     - [ ] Re-test Submit → AI → PDF flow and confirm missing price display
+- Date/Time (2026-02-17 00:00), Session Goal: Fix build errors after async estimate rollout
+  - What changed:
+    - Added estimate_queue table and new RPCs to Supabase TypeScript types
+  - Decisions made:
+    - Keep database.types.ts in sync with new queue + RPCs for builds
+  - Open questions / risks:
+    - None
+  - Next actions:
+    - [ ] Re-run npm run build to confirm type errors are resolved

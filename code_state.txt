@@ -1,23 +1,14 @@
 Current focus:
-- Move estimate generation to async worker with hybrid pricing retrieval.
-- Surface missing price cases for low confidence/timeouts.
+- Ensure async estimate flow builds cleanly and deploys with queue + worker.
 
 What's working:
-- Estimate submit now enqueues job and triggers Edge worker.
-- Hybrid search RPC defined (pgvector + trigram) for pricing candidates.
-- Missing price is displayed in UI and PDF for low confidence/timeouts.
+- Supabase types now include estimate_queue and new RPCs for hybrid pricing.
 
 What's broken / pending:
-- Migration + Edge Function deployment not yet applied.
-- Queue drain depends on worker trigger or external scheduler.
+- Need to re-run npm run build to confirm no remaining type errors.
 
 Latest files touched:
-- app/api/jobs/[id]/estimate/route.ts
-- supabase/functions/estimate-worker/index.ts
-- supabase/migrations/20260217_add_estimate_queue_and_pricing_search.sql
-- app/jobs/[id]/page.tsx
-- supabase/functions/generate-pdf/index.ts
-- supabase/schema.sql
+- lib/supabase/database.types.ts
 - NOTES.md
 - code_state.txt
 
@@ -25,6 +16,6 @@ Commands to run locally:
 - npm run build
 
 Next 3 concrete steps:
-1) Apply supabase/migrations/20260217_add_estimate_queue_and_pricing_search.sql in Supabase.
-2) Deploy supabase/functions/estimate-worker and updated generate-pdf.
-3) Re-test Submit → AI → PDF flow and confirm missing price display.
+1) Run npm run build to confirm type errors are resolved.
+2) Deploy estimate-worker and updated generate-pdf.
+3) Apply migration for estimate queue + hybrid search if not yet applied.
