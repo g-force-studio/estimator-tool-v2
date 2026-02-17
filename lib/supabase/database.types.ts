@@ -123,6 +123,45 @@ export interface Database {
         }
         Relationships: []
       }
+      estimate_queue: {
+        Row: {
+          id: string
+          job_id: string
+          workspace_id: string
+          status: 'pending' | 'running' | 'failed'
+          attempts: number
+          max_attempts: number
+          error_message: string | null
+          locked_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          workspace_id: string
+          status?: 'pending' | 'running' | 'failed'
+          attempts?: number
+          max_attempts?: number
+          error_message?: string | null
+          locked_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          workspace_id?: string
+          status?: 'pending' | 'running' | 'failed'
+          attempts?: number
+          max_attempts?: number
+          error_message?: string | null
+          locked_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           id: string
@@ -791,6 +830,16 @@ export interface Database {
         Args: Record<string, never>
         Returns: string | null
       }
+      dequeue_estimate_job: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          job_id: string
+          workspace_id: string
+          attempts: number
+          max_attempts: number
+        }[]
+      }
       is_member_of: {
         Args: { workspace_id: string }
         Returns: boolean
@@ -798,6 +847,26 @@ export interface Database {
       is_admin_of: {
         Args: { workspace_id: string }
         Returns: boolean
+      }
+      search_pricing_candidates: {
+        Args: {
+          query_text: string
+          query_embedding: string | null
+          trade: string
+          workspace_id: string
+          workspace_pricing_id: string | null
+          customer_id: string | null
+          limit_count?: number
+        }
+        Returns: {
+          source: string
+          item_key: string
+          description: string
+          unit: string | null
+          unit_cost: number | null
+          unit_price: number | null
+          score: number | null
+        }[]
       }
     }
     Enums: {
