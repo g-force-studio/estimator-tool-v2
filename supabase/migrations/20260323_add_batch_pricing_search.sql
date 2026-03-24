@@ -150,8 +150,3 @@ BEGIN
 END;
 $$;
 
--- Optional: GiST index on pricing_materials.item_key supports nearest-neighbour
--- ORDER BY with the <-> operator, which is faster than GIN for sorted retrieval.
--- GIN handles similarity()-filtered WHERE clauses; GiST handles ORDER BY ... LIMIT.
-CREATE INDEX IF NOT EXISTS pricing_materials_item_key_gist_idx
-  ON public.pricing_materials USING gist (item_key gist_trgm_ops);
