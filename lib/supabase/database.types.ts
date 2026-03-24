@@ -868,6 +868,27 @@ export interface Database {
           score: number | null
         }[]
       }
+      search_pricing_candidates_batch: {
+        Args: {
+          query_texts: string[]
+          query_embeddings: (string | null)[] | null
+          p_trade: string
+          p_workspace_id: string
+          p_workspace_pricing_id: string | null
+          p_customer_id: string | null
+          limit_per_item?: number
+        }
+        Returns: {
+          input_idx: number
+          source: string
+          item_key: string
+          description: string
+          unit: string | null
+          unit_cost: number | null
+          unit_price: number | null
+          score: number | null
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

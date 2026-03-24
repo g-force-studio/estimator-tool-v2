@@ -1,21 +1,25 @@
 Current focus:
-- Ensure async estimate flow builds cleanly and deploys with queue + worker.
+- Batch pricing search deployed: N sequential RPC calls → 1 batch RPC call.
 
 What's working:
-- Supabase types now include estimate_queue and new RPCs for hybrid pricing.
+- Async estimate queue + estimate-worker pipeline.
+- Supabase types include estimate_queue, search_pricing_candidates, and new search_pricing_candidates_batch.
 
 What's broken / pending:
-- Need to re-run npm run build to confirm no remaining type errors.
+- Migration 20260323_add_batch_pricing_search.sql must be applied in Supabase.
+- estimate-worker Edge Function must be redeployed after migration is applied.
+- npm run build should be re-run to confirm no type errors.
 
 Latest files touched:
-- lib/supabase/database.types.ts
+- supabase/migrations/20260323_add_batch_pricing_search.sql (new)
+- supabase/functions/estimate-worker/index.ts (batch RPC + parallel prompt fetch)
+- lib/supabase/database.types.ts (added search_pricing_candidates_batch type)
 - NOTES.md
-- code_state.txt
 
 Commands to run locally:
 - npm run build
 
 Next 3 concrete steps:
-1) Run npm run build to confirm type errors are resolved.
-2) Deploy estimate-worker and updated generate-pdf.
-3) Apply migration for estimate queue + hybrid search if not yet applied.
+1) Apply supabase/migrations/20260323_add_batch_pricing_search.sql in Supabase SQL editor.
+2) Deploy estimate-worker Edge Function (supabase functions deploy estimate-worker).
+3) Run npm run build to confirm no type errors.

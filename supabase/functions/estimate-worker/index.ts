@@ -154,36 +154,38 @@ async function getWorkspacePrompt(
   trade: WorkspacePromptResult['trade'],
   customerId?: string | null
 ): Promise<WorkspacePromptResult> {
-  const { data: workspace, error: workspaceError } = await supabaseAdmin
-    .from('workspaces')
-    .select('default_ai_reference_config_id, trade')
-    .eq('id', workspaceId)
-    .maybeSingle();
+  // Fetch workspace and customer config concurrently — they don't depend on each other.
+  const [
+    { data: workspace, error: workspaceError },
+    { data: customerConfig, error: customerError },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('workspaces')
+      .select('default_ai_reference_config_id, trade')
+      .eq('id', workspaceId)
+      .maybeSingle(),
+    customerId
+      ? supabaseAdmin
+          .from('ai_reference_configs')
+          .select('id, system_prompt, trade')
+          .eq('workspace_id', workspaceId)
+          .eq('customer_id', customerId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
 
-  if (workspaceError) {
-    throw workspaceError;
-  }
+  if (workspaceError) throw workspaceError;
+  if (customerError) throw customerError;
 
-  if (customerId) {
-    const { data: customerConfig, error: customerError } = await supabaseAdmin
-      .from('ai_reference_configs')
-      .select('id, system_prompt, trade')
-      .eq('workspace_id', workspaceId)
-      .eq('customer_id', customerId)
-      .maybeSingle();
-
-    if (customerError) throw customerError;
-
-    if (customerConfig?.system_prompt) {
-      return {
-        id: customerConfig.id,
-        systemPrompt: customerConfig.system_prompt,
-        trade: (customerConfig.trade as WorkspacePromptResult['trade']) ??
-          (workspace?.trade as WorkspacePromptResult['trade']) ??
-          trade,
-        source: 'customer_override',
-      };
-    }
+  if (customerConfig?.system_prompt) {
+    return {
+      id: customerConfig.id,
+      systemPrompt: customerConfig.system_prompt,
+      trade: (customerConfig.trade as WorkspacePromptResult['trade']) ??
+        (workspace?.trade as WorkspacePromptResult['trade']) ??
+        trade,
+      source: 'customer_override',
+    };
   }
 
   if (workspace?.default_ai_reference_config_id) {
@@ -519,50 +521,62 @@ serve(async (req) => {
         }))
       : [];
 
-    const embeddingInputs = materials.map((item) => item.item).filter(Boolean);
-    let embeddings: Array<{ embedding?: number[] }> = [];
+    // Build embedding params aligned with the materials array (index-safe).
+    const queryTexts = materials.map((item) => item.item);
+    let rawEmbeddings: Array<{ embedding?: number[] }> = [];
     try {
-      embeddings = await getEmbeddings(embeddingInputs);
+      // Replace empty names with a placeholder so the OpenAI API never sees an empty string.
+      const apiInputs = queryTexts.map((t) => t || '(item)');
+      rawEmbeddings = await getEmbeddings(apiInputs);
     } catch (e) {
       console.error('Embedding fetch error:', e);
     }
+    const queryEmbeddingParams = queryTexts.map((_, i) => {
+      const emb = rawEmbeddings[i]?.embedding;
+      return Array.isArray(emb) ? `[${emb.join(',')}]` : null;
+    });
 
     let missingCount = 0;
     let missingTimeoutCount = 0;
     let missingLowConfidenceCount = 0;
-
     const pricedMaterials: MaterialLine[] = [];
+
+    // Single batch RPC — one round-trip replaces N sequential calls.
+    let batchFailed = false;
+    const candidateMap = new Map<number, Record<string, unknown>>();
+
+    if (materials.length > 0) {
+      try {
+        const { data: batchData, error: batchError } = await supabaseAdmin.rpc(
+          'search_pricing_candidates_batch',
+          {
+            query_texts: queryTexts,
+            query_embeddings: queryEmbeddingParams,
+            p_trade: promptResult.trade,
+            p_workspace_id: job.workspace_id,
+            p_workspace_pricing_id: workspacePricingId,
+            p_customer_id: customerId,
+            limit_per_item: 1,
+          }
+        );
+        if (batchError) {
+          batchFailed = true;
+          console.error('Batch pricing RPC error:', batchError);
+        } else {
+          for (const row of batchData || []) {
+            candidateMap.set(row.input_idx as number, row as Record<string, unknown>);
+          }
+        }
+      } catch (e) {
+        batchFailed = true;
+        console.error('Batch pricing RPC exception:', e);
+      }
+    }
 
     for (let i = 0; i < materials.length; i += 1) {
       const material = materials[i];
-      const queryEmbedding = embeddings[i]?.embedding ?? null;
-      const embeddingParam =
-        Array.isArray(queryEmbedding) ? `[${queryEmbedding.join(',')}]` : null;
-      let candidates: Array<Record<string, unknown>> = [];
-      let rpcFailed = false;
-
-      try {
-        const { data, error } = await supabaseAdmin.rpc('search_pricing_candidates', {
-          query_text: material.item,
-          query_embedding: embeddingParam,
-          trade: promptResult.trade,
-          workspace_id: job.workspace_id,
-          workspace_pricing_id: workspacePricingId,
-          customer_id: customerId,
-          limit_count: 60,
-        });
-        if (error) {
-          rpcFailed = true;
-          console.error('Pricing candidate RPC error:', error);
-        } else {
-          candidates = data || [];
-        }
-      } catch (e) {
-        rpcFailed = true;
-        console.error('Pricing candidate RPC exception:', e);
-      }
-
-      const topCandidate = candidates[0] ?? null;
+      const topCandidate = candidateMap.get(i) ?? null;
+      const rpcFailed = batchFailed;
       const source = typeof topCandidate?.source === 'string' ? topCandidate.source : 'none';
       const score = Number(topCandidate?.score ?? 0);
 

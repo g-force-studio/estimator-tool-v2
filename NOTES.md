@@ -546,3 +546,26 @@ Use this file to capture decisions, changes, and open questions after each worki
     - None
   - Next actions:
     - [ ] Re-run npm run build to confirm type errors are resolved
+
+- Date/Time (2026-03-23 00:00), Session Goal: Batch pricing DB search + parallel prompt fetch for speed
+  - What changed:
+    - Added migration supabase/migrations/20260323_add_batch_pricing_search.sql with search_pricing_candidates_batch RPC
+      - Uses LATERAL join on pricing_materials so GIN trigram index fires once per input query (not a full scan per RPC call)
+      - Returns top-N candidates per input in one round-trip vs N sequential calls
+      - Also adds GiST index on pricing_materials.item_key for nearest-neighbour ORDER BY support
+    - Updated estimate-worker to use search_pricing_candidates_batch (single batch RPC call)
+    - Parallelized workspace + customer config fetches in getWorkspacePrompt via Promise.all
+    - Fixed index-alignment bug: embedding array now aligned with materials array; empty names get placeholder for OpenAI API
+    - Added search_pricing_candidates_batch to lib/supabase/database.types.ts
+  - Decisions made:
+    - Use LATERAL (not CROSS JOIN) for catalog lookup to enable per-row GIN index scans
+    - On batch RPC failure, mark all materials as missing (same as before for individual failure)
+    - Preserved all existing scoring logic (0.6 vector + 0.4 trigram) and CONFIDENCE_THRESHOLD
+  - Open questions / risks:
+    - Apply migration in Supabase before deploying updated estimate-worker
+    - GiST index creation on large pricing_materials table may take time; safe to run concurrently
+    - If pricing_materials embeddings are not populated, vector scoring stays 0 (trigram-only, same as before)
+  - Next actions:
+    - [ ] Apply supabase/migrations/20260323_add_batch_pricing_search.sql in Supabase
+    - [ ] Deploy updated estimate-worker Edge Function
+    - [ ] Re-run npm run build to confirm no type errors
