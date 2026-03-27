@@ -84,7 +84,6 @@ GOAL
 - Identify required materials and labor realistically.
 
 PRICING RULES (STRICT)
-- Do NOT invent material prices.
 - Set ALL "estimate.materials[].cost" values to 0.
 - The server will overwrite material pricing using workspace_pricing_materials (customer override, then workspace) or pricing_materials.
  - If you are unsure about an item name, still include it using a clear, human-readable description.
@@ -117,6 +116,29 @@ RULES
 `;
 
 const roundToHalf = (value: number) => Math.round(value * 2) / 2;
+
+function buildCatalogReference(
+  rows: Array<{ category: string; item_key: string }> | null
+): string {
+  if (!rows || rows.length === 0) return '';
+
+  const byCategory = new Map<string, string[]>();
+  for (const row of rows) {
+    const cat = row.category || 'General';
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(row.item_key);
+  }
+
+  const lines = Array.from(byCategory.entries())
+    .map(([cat, items]) => `  ${cat}: ${items.join(', ')}`)
+    .join('\n');
+
+  return [
+    'PRICING CATALOG REFERENCE',
+    'Use item names matching this catalog format (uppercase, dimensional notation e.g. "2 X 4 X 8"):',
+    lines,
+  ].join('\n');
+}
 const formatEstimateNumber = (value: Date) => {
   const pad = (part: number) => String(part).padStart(2, '0');
   const year = value.getUTCFullYear();
@@ -453,12 +475,22 @@ serve(async (req) => {
         quantity: Number(item.content_json?.quantity ?? 0),
       }));
 
-    const promptResult = await getWorkspacePrompt(
-      job.workspace_id,
-      (workspaceData?.trade as WorkspacePromptResult['trade']) ?? 'general_contractor',
-      customerId
-    );
+    const workspaceTrade =
+      (workspaceData?.trade as WorkspacePromptResult['trade']) ?? 'general_contractor';
+
+    // Fetch workspace prompt and catalog samples concurrently.
+    const [promptResult, catalogSamplesResult] = await Promise.all([
+      getWorkspacePrompt(job.workspace_id, workspaceTrade, customerId),
+      supabaseAdmin.rpc('get_catalog_category_samples', {
+        p_trade: workspaceTrade,
+        samples_per_category: 3,
+      }),
+    ]);
+
     const systemPrompt = promptResult.systemPrompt ?? fallbackSystemPrompt;
+    const catalogReference = buildCatalogReference(
+      catalogSamplesResult.data as Array<{ category: string; item_key: string }> | null
+    );
 
     const userText = [
       `Job title: ${job.title}`,
@@ -468,7 +500,8 @@ serve(async (req) => {
       `Job Summary (source): ${job.description_md || ''}`,
       `Existing line items: ${JSON.stringify(lineItems)}`,
       'Use the photos to identify fixtures/materials and include key observations in image_analysis.',
-    ].join('\n');
+      catalogReference,
+    ].filter(Boolean).join('\n');
 
     const userContent: Array<{ type: string; text?: string; image_url?: string }> = [
       { type: 'input_text', text: userText },

@@ -868,6 +868,16 @@ export interface Database {
           score: number | null
         }[]
       }
+      get_catalog_category_samples: {
+        Args: {
+          p_trade: string
+          samples_per_category?: number
+        }
+        Returns: {
+          category: string
+          item_key: string
+        }[]
+      }
       search_pricing_candidates_batch: {
         Args: {
           query_texts: string[]
