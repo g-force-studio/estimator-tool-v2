@@ -80,6 +80,7 @@ RULES
 - materials[].qty must be numeric.
 - materials[].cost must always be 0.
 $gc$,
+  TRUE,
   2
 )
 ON CONFLICT (trade, name, version) DO UPDATE

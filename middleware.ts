@@ -62,9 +62,13 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  const authTimeout = new Promise<{ data: { user: null } }>((resolve) =>
+    setTimeout(() => resolve({ data: { user: null } }), 5000)
+  );
+
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await Promise.race([supabase.auth.getUser(), authTimeout]);
 
   if (!user && !request.nextUrl.pathname.startsWith('/auth') && !request.nextUrl.pathname.startsWith('/packages/') && !request.nextUrl.pathname.startsWith('/invite/')) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
