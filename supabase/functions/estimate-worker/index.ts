@@ -6,7 +6,7 @@ const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const OPENAI_EMBED_URL = 'https://api.openai.com/v1/embeddings';
 const DRAFT_MODEL = 'gpt-4.1-mini';
 const EMBEDDING_MODEL = 'text-embedding-3-small';
-const CONFIDENCE_THRESHOLD = 0.20;
+const CONFIDENCE_THRESHOLD = 0.25;
 
 // @ts-expect-error Deno global is only available in edge runtime.
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
