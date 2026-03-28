@@ -1182,8 +1182,25 @@ export default function JobDetailPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Add Photos
+                Photos
               </label>
+              {job?.photos && job.photos.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Existing photos</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {job.photos.map((photo) => (
+                      <div key={photo.id}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photo.url}
+                          alt={photo.file_name}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <input
                 type="file"
                 accept="image/*"
