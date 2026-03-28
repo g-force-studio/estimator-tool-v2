@@ -1,5 +1,5 @@
 Current focus:
-- Pricing accuracy and estimate pipeline fully wired. Catalog imported. Ready to push.
+- Prompt quality: quantity estimation rules added (v3). Photo edit fix committed. Ready to push.
 
 What's working:
 - Batch pricing search deployed (search_pricing_candidates_batch RPC, one round-trip vs N sequential).
@@ -10,26 +10,24 @@ What's working:
 - Middleware auth timeout (5s) prevents dev server from hanging on slow Supabase responses.
 - Dev server working locally (old workbox SW replaced with self-unregistering stub).
 - Estimates generating successfully end-to-end (tested with kitchen remodel).
+- Edit mode now shows existing job photos (job.photos grid above file input).
+- GC prompt v3: quantity rules, waste factors, dimension-basis requirement, flag uncertain quantities in jobNotes.
 
 What's broken / pending:
 - pricing_materials catalog is missing fixture/appliance items: cabinets, sinks, faucets,
-  countertops, doors, windows, etc. These must be added manually with real prices.
+  countertops, doors, windows, GFCI OUTLET, DIMMER SWITCH, JACK STUDS 2X4, LAMINATED LUMBER.
+  These must be added manually with real prices.
 - generate-pdf Edge Function needs to be deployed.
 - npm run build not re-run after latest changes.
+- Migration 20260328_update_gc_prompt_quantity_guidance.sql needs to be run in Supabase SQL editor.
 
 Latest files touched:
-- supabase/migrations/20260323_add_batch_pricing_search.sql
-- supabase/migrations/20260324_make_pricing_materials_global.sql
-- supabase/migrations/20260327_update_gc_prompt_and_catalog_rpc.sql
-- supabase/functions/estimate-worker/index.ts
-- supabase/general-contractor-materials-import.csv (import artifact, not committed)
-- lib/supabase/database.types.ts
-- middleware.ts
-- public/sw.js
-- NOTES.md
+- supabase/migrations/20260328_update_gc_prompt_quantity_guidance.sql (new)
+- app/jobs/[id]/page.tsx (existing photos shown in edit mode)
+- public/sw.js (self-unregistering stub)
 - code_state.txt
 
-Pending commits to push (7 commits ahead of origin):
+Pending commits to push (11 commits ahead of origin):
 - 360d198 Batch pricing search: N sequential RPCs → 1 round-trip
 - 97c495c Remove GiST index from batch pricing migration
 - 79af1c5 Make pricing_materials.workspace_id nullable (global catalog)
@@ -37,10 +35,14 @@ Pending commits to push (7 commits ahead of origin):
 - cc4605c Fix migration errors and add middleware auth timeout
 - 507866d Lower pricing confidence threshold from 0.35 to 0.20
 - 2965d2d Raise pricing confidence threshold to 0.25
+- f0d4477 Update session notes and state snapshot for 2026-03-28
+- ff1228d Show existing photos when editing a submitted job
+- (next) GC prompt v3: quantity estimation rules
 
 Next concrete steps:
-1) Add missing fixture/appliance items to pricing_materials in Supabase.
-2) supabase functions deploy estimate-worker
-3) supabase functions deploy generate-pdf
-4) npm run build — confirm clean.
-5) git push
+1) Run migration 20260328_update_gc_prompt_quantity_guidance.sql in Supabase SQL editor.
+2) Add missing fixture/appliance items to pricing_materials in Supabase.
+3) supabase functions deploy estimate-worker
+4) supabase functions deploy generate-pdf
+5) npm run build — confirm clean.
+6) git push
