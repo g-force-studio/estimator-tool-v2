@@ -245,6 +245,42 @@ Use this file to capture decisions, changes, and open questions after each worki
 7) Add a config file for AI prompting
 8) Use pricing database as a reference before AI creates estimates
 
+- Date/Time (2026-03-28 00:00), Session Goal: Deploy batch pricing, catalog injection, CSV import, and fix dev server
+  - What changed:
+    - Batch pricing search (migration 20260323): replaced N sequential search_pricing_candidates RPCs with one
+      search_pricing_candidates_batch call using LATERAL join + GIN trigram index. Removed bad GiST index that
+      caused a Supabase error. Enabled pg_trgm and vector extensions in Supabase (required for similarity() and pgvector).
+    - Workspace pricing nullable (migration 20260324): made pricing_materials.workspace_id nullable so CSV imports
+      don't require a dummy workspace_id. Fixed migration with a DO block guard after initial error.
+    - Catalog injection + prompt update (migration 20260327): added get_catalog_category_samples RPC and updated
+      general_contractor prompt template to version 2. Fixed missing TRUE value in INSERT that caused a SQL error.
+    - CSV import: cleaned general-contractor-materials-Table.csv into general-contractor-materials-import.csv by
+      stripping UUID columns and removing thousands-separator commas from unit_price. 7,308 rows imported successfully.
+    - Catalog reference injection in estimate-worker: fetches category samples in parallel with getWorkspacePrompt,
+      builds a PRICING CATALOG REFERENCE block injected into the AI user message so AI uses catalog-format names.
+    - Confidence threshold tuned: 0.35 → 0.20 → settled at 0.25. 0.20 caused false matches (cabinets/sinks matched
+      to unrelated $3.35 hardware items). 0.25 filters false matches while capturing correct items (~0.26-0.27 score).
+    - Middleware auth timeout: added 5s Promise.race to supabase.auth.getUser() in middleware.ts so a slow Supabase
+      auth response fails open instead of hanging all requests indefinitely.
+    - Dev server fix: replaced old workbox public/sw.js with a self-unregistering stub. Old SW was intercepting all
+      requests and serving stale cached chunks, preventing the app from loading locally.
+  - Decisions made:
+    - Confidence threshold set at 0.25 as a balance between recall and precision for trigram-only matching
+    - pricing_materials is a global catalog (no workspace_id filter in search); workspace_id made nullable
+    - Catalog missing items (cabinets, sinks, faucets, countertops) must be added manually with realistic prices
+    - No Claude attribution in git commits (user preference, saved to memory)
+  - Open questions / risks:
+    - pricing_materials catalog is incomplete for fixture/appliance items — cabinets, sinks, faucets, countertops,
+      doors, windows etc. need to be added with real prices for accurate estimates
+    - generate-pdf Edge Function still needs to be deployed
+    - npm run build has not been re-run to confirm no type errors after all changes
+  - Next actions:
+    - [ ] Add missing catalog items (cabinets, sinks, faucets, countertops, fixtures) to pricing_materials
+    - [ ] Deploy estimate-worker: supabase functions deploy estimate-worker
+    - [ ] Deploy generate-pdf: supabase functions deploy generate-pdf
+    - [ ] Run npm run build to confirm clean build
+    - [ ] Push all commits to GitHub
+
 ## Known Issues
 - Issue: Job status enum mismatch across UI/back end in older data
   - Repro: Existing jobs with deprecated status values may fail validation after status enum change

@@ -1,25 +1,46 @@
 Current focus:
-- Batch pricing search deployed: N sequential RPC calls → 1 batch RPC call.
+- Pricing accuracy and estimate pipeline fully wired. Catalog imported. Ready to push.
 
 What's working:
-- Async estimate queue + estimate-worker pipeline.
-- Supabase types include estimate_queue, search_pricing_candidates, and new search_pricing_candidates_batch.
+- Batch pricing search deployed (search_pricing_candidates_batch RPC, one round-trip vs N sequential).
+- 7,308 general contractor catalog rows imported into pricing_materials.
+- Catalog reference injected into AI prompt so AI uses catalog-format item names.
+- Confidence threshold set to 0.25 (filters false matches, captures correct ~0.26+ scores).
+- pg_trgm and vector extensions enabled in Supabase.
+- Middleware auth timeout (5s) prevents dev server from hanging on slow Supabase responses.
+- Dev server working locally (old workbox SW replaced with self-unregistering stub).
+- Estimates generating successfully end-to-end (tested with kitchen remodel).
 
 What's broken / pending:
-- Migration 20260323_add_batch_pricing_search.sql must be applied in Supabase.
-- estimate-worker Edge Function must be redeployed after migration is applied.
-- npm run build should be re-run to confirm no type errors.
+- pricing_materials catalog is missing fixture/appliance items: cabinets, sinks, faucets,
+  countertops, doors, windows, etc. These must be added manually with real prices.
+- generate-pdf Edge Function needs to be deployed.
+- npm run build not re-run after latest changes.
 
 Latest files touched:
-- supabase/migrations/20260323_add_batch_pricing_search.sql (new)
-- supabase/functions/estimate-worker/index.ts (batch RPC + parallel prompt fetch)
-- lib/supabase/database.types.ts (added search_pricing_candidates_batch type)
+- supabase/migrations/20260323_add_batch_pricing_search.sql
+- supabase/migrations/20260324_make_pricing_materials_global.sql
+- supabase/migrations/20260327_update_gc_prompt_and_catalog_rpc.sql
+- supabase/functions/estimate-worker/index.ts
+- supabase/general-contractor-materials-import.csv (import artifact, not committed)
+- lib/supabase/database.types.ts
+- middleware.ts
+- public/sw.js
 - NOTES.md
+- code_state.txt
 
-Commands to run locally:
-- npm run build
+Pending commits to push (7 commits ahead of origin):
+- 360d198 Batch pricing search: N sequential RPCs → 1 round-trip
+- 97c495c Remove GiST index from batch pricing migration
+- 79af1c5 Make pricing_materials.workspace_id nullable (global catalog)
+- cd155da Inject pricing catalog reference into AI prompt
+- cc4605c Fix migration errors and add middleware auth timeout
+- 507866d Lower pricing confidence threshold from 0.35 to 0.20
+- 2965d2d Raise pricing confidence threshold to 0.25
 
-Next 3 concrete steps:
-1) Apply supabase/migrations/20260323_add_batch_pricing_search.sql in Supabase SQL editor.
-2) Deploy estimate-worker Edge Function (supabase functions deploy estimate-worker).
-3) Run npm run build to confirm no type errors.
+Next concrete steps:
+1) Add missing fixture/appliance items to pricing_materials in Supabase.
+2) supabase functions deploy estimate-worker
+3) supabase functions deploy generate-pdf
+4) npm run build — confirm clean.
+5) git push
