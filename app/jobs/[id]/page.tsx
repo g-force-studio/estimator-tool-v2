@@ -140,6 +140,19 @@ export default function JobDetailPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMountedRef = useRef(true);
   const [aiOutput, setAiOutput] = useState<AiOutput | null>(null);
+  const [actuals, setActuals] = useState<{
+    id?: string;
+    estimated_materials?: Array<{ item: string; qty: number }>;
+    actual_materials?: Array<{ item: string; qty: number }> | null;
+    estimated_labor_hours?: number | null;
+    actual_labor_hours?: number | null;
+    exclude_from_history?: boolean;
+  } | null>(null);
+  const [actualsExpanded, setActualsExpanded] = useState(false);
+  const [isSavingActuals, setIsSavingActuals] = useState(false);
+  const [actualsEdits, setActualsEdits] = useState<Record<string, string>>({});
+  const [actualLaborHours, setActualLaborHours] = useState('');
+  const [excludeFromHistory, setExcludeFromHistory] = useState(false);
   const { dialog, showAlert, showConfirm, showPrompt } = useAppleDialog();
 
   const {
@@ -225,6 +238,27 @@ export default function JobDetailPage() {
     return data;
   }, []);
 
+  const refreshActuals = useCallback(async (id: string) => {
+    const response = await fetch(`/api/jobs/${id}/actuals`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (isMountedRef.current && data.actuals) {
+      setActuals(data.actuals);
+      setExcludeFromHistory(data.actuals.exclude_from_history ?? false);
+      setActualLaborHours(
+        data.actuals.actual_labor_hours != null ? String(data.actuals.actual_labor_hours) : ''
+      );
+      const edits: Record<string, string> = {};
+      if (Array.isArray(data.actuals.actual_materials)) {
+        for (const m of data.actuals.actual_materials) {
+          edits[m.item] = String(m.qty);
+        }
+      }
+      setActualsEdits(edits);
+    }
+    return data;
+  }, []);
+
   useEffect(() => {
     const loadJob = async () => {
       setIsLoading(true);
@@ -240,6 +274,7 @@ export default function JobDetailPage() {
           const [refreshed] = await Promise.all([
             refreshJob(jobId),
             isOnline ? refreshAiOutput(jobId) : null,
+            isOnline ? refreshActuals(jobId) : null,
           ]);
           if (!refreshed && !cachedJob) {
             setLoadError('Unable to load the job. Please try again.');
@@ -261,7 +296,7 @@ export default function JobDetailPage() {
     };
 
     loadJob();
-  }, [jobId, isOnline, refreshJob, refreshAiOutput, applyJobToForm]);
+  }, [jobId, isOnline, refreshJob, refreshAiOutput, refreshActuals, applyJobToForm]);
 
   useEffect(() => {
     if (job?.job_items) {
@@ -532,6 +567,33 @@ export default function JobDetailPage() {
     } catch (error) {
       console.error('Error deleting job:', error);
       await showAlert('Failed to delete job. Please try again.');
+    }
+  };
+
+  const handleSaveActuals = async () => {
+    setIsSavingActuals(true);
+    try {
+      const estimatedMats = actuals?.estimated_materials ?? [];
+      const actual_materials = estimatedMats.map((m) => ({
+        item: m.item,
+        qty: actualsEdits[m.item] !== undefined ? Number(actualsEdits[m.item]) : m.qty,
+      }));
+      const actual_labor_hours = actualLaborHours.trim() === '' ? null : Number(actualLaborHours);
+
+      const response = await fetch(`/api/jobs/${jobId}/actuals`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actual_materials, actual_labor_hours, exclude_from_history: excludeFromHistory }),
+      });
+      if (!response.ok) throw new Error('Failed to save actuals');
+      const data = await response.json();
+      if (isMountedRef.current) setActuals(data.actuals);
+      await showAlert('Actuals saved.');
+    } catch (error) {
+      console.error('Error saving actuals:', error);
+      await showAlert('Failed to save actuals. Please try again.');
+    } finally {
+      setIsSavingActuals(false);
     }
   };
 
@@ -850,6 +912,101 @@ export default function JobDetailPage() {
                     <span>${toNumber(aiEstimate.total).toFixed(2)}</span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {actuals && aiEstimate && (
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setActualsExpanded((prev) => !prev)}
+                  className="flex items-center justify-between w-full text-left"
+                >
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Job Actuals
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {actualsExpanded ? 'Hide' : 'Enter actual quantities after completion'}
+                  </span>
+                </button>
+
+                {actualsExpanded && (
+                  <div className="mt-3 space-y-4">
+                    {Array.isArray(actuals.estimated_materials) && actuals.estimated_materials.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Material Quantities
+                        </p>
+                        <div className="space-y-2">
+                          {actuals.estimated_materials.map((m) => (
+                            <div key={m.item} className="flex items-center gap-2 text-sm">
+                              <span className="flex-1 text-gray-700 dark:text-gray-300 truncate">
+                                {m.item}
+                              </span>
+                              <span className="text-xs text-gray-400 w-20 text-right">
+                                AI: {m.qty}
+                              </span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={actualsEdits[m.item] ?? ''}
+                                onChange={(e) =>
+                                  setActualsEdits((prev) => ({ ...prev, [m.item]: e.target.value }))
+                                }
+                                placeholder="Actual"
+                                className="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Total actual labor hours
+                        {actuals.estimated_labor_hours != null && (
+                          <span className="ml-2 font-normal text-gray-400">
+                            (AI est: {actuals.estimated_labor_hours}h)
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={actualLaborHours}
+                        onChange={(e) => setActualLaborHours(e.target.value)}
+                        placeholder="e.g. 32"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <input
+                        id="exclude-history"
+                        type="checkbox"
+                        checked={excludeFromHistory}
+                        onChange={(e) => setExcludeFromHistory(e.target.checked)}
+                        className="rounded border-gray-300 dark:border-gray-600"
+                      />
+                      <label
+                        htmlFor="exclude-history"
+                        className="text-sm text-gray-700 dark:text-gray-300"
+                      >
+                        Exclude this job from history (won&apos;t influence future estimates)
+                      </label>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveActuals}
+                      disabled={isSavingActuals}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                    >
+                      {isSavingActuals ? 'Saving...' : 'Save Actuals'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

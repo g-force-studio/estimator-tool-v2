@@ -102,6 +102,10 @@ export interface Database {
           tax_rate_percent: number
           markup_percent: number
           hourly_rate: number
+          history_samples: number
+          history_window_months: number
+          history_min_jobs: number
+          history_max_per_type: number
           created_at: string
           updated_at: string
         }
@@ -110,6 +114,10 @@ export interface Database {
           tax_rate_percent?: number
           markup_percent?: number
           hourly_rate?: number
+          history_samples?: number
+          history_window_months?: number
+          history_min_jobs?: number
+          history_max_per_type?: number
           created_at?: string
           updated_at?: string
         }
@@ -118,8 +126,63 @@ export interface Database {
           tax_rate_percent?: number
           markup_percent?: number
           hourly_rate?: number
+          history_samples?: number
+          history_window_months?: number
+          history_min_jobs?: number
+          history_max_per_type?: number
           created_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      estimate_actuals: {
+        Row: {
+          id: string
+          workspace_id: string
+          job_id: string | null
+          job_type: string
+          trade: string
+          job_title: string | null
+          job_description: string | null
+          sqft_estimate: number | null
+          estimated_materials: Json
+          actual_materials: Json | null
+          estimated_labor_hours: number | null
+          actual_labor_hours: number | null
+          exclude_from_history: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          job_id?: string | null
+          job_type: string
+          trade?: string
+          job_title?: string | null
+          job_description?: string | null
+          sqft_estimate?: number | null
+          estimated_materials?: Json
+          actual_materials?: Json | null
+          estimated_labor_hours?: number | null
+          actual_labor_hours?: number | null
+          exclude_from_history?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          job_id?: string | null
+          job_type?: string
+          trade?: string
+          job_title?: string | null
+          job_description?: string | null
+          sqft_estimate?: number | null
+          estimated_materials?: Json
+          actual_materials?: Json | null
+          estimated_labor_hours?: number | null
+          actual_labor_hours?: number | null
+          exclude_from_history?: boolean
+          created_at?: string
         }
         Relationships: []
       }
@@ -876,6 +939,23 @@ export interface Database {
         Returns: {
           category: string
           item_key: string
+        }[]
+      }
+      get_history_reference: {
+        Args: {
+          p_workspace_id: string
+          p_job_type: string
+          p_limit?: number
+          p_window_months?: number
+        }
+        Returns: {
+          job_type: string
+          job_title: string | null
+          sqft_estimate: number | null
+          estimated_materials: Array<{ item: string; qty: number }> | null
+          actual_materials: Array<{ item: string; qty: number }> | null
+          estimated_labor_hours: number | null
+          actual_labor_hours: number | null
         }[]
       }
       search_pricing_candidates_batch: {

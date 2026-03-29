@@ -46,6 +46,38 @@ export const workspaceSettingsSchema = z.object({
     },
     z.number().min(0, 'Hourly rate must be zero or higher').optional()
   ),
+  history_samples: z.preprocess(
+    (value) => {
+      if (value === '' || value === null || value === undefined) return undefined;
+      const num = typeof value === 'string' ? Number(value) : value;
+      return Number.isFinite(num) ? Math.round(num as number) : undefined;
+    },
+    z.number().int().min(1).max(10).optional()
+  ),
+  history_window_months: z.preprocess(
+    (value) => {
+      if (value === '' || value === null || value === undefined) return undefined;
+      const num = typeof value === 'string' ? Number(value) : value;
+      return Number.isFinite(num) ? Math.round(num as number) : undefined;
+    },
+    z.number().int().min(1).max(60).optional()
+  ),
+  history_min_jobs: z.preprocess(
+    (value) => {
+      if (value === '' || value === null || value === undefined) return undefined;
+      const num = typeof value === 'string' ? Number(value) : value;
+      return Number.isFinite(num) ? Math.round(num as number) : undefined;
+    },
+    z.number().int().min(1).max(10).optional()
+  ),
+  history_max_per_type: z.preprocess(
+    (value) => {
+      if (value === '' || value === null || value === undefined) return undefined;
+      const num = typeof value === 'string' ? Number(value) : value;
+      return Number.isFinite(num) ? Math.round(num as number) : undefined;
+    },
+    z.number().int().min(10).max(500).optional()
+  ),
 });
 
 export const inviteSchema = z.object({

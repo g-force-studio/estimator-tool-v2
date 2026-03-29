@@ -72,6 +72,11 @@ export default function SettingsPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
+  const [historySamples, setHistorySamples] = useState('3');
+  const [historyWindowMonths, setHistoryWindowMonths] = useState('18');
+  const [historyMinJobs, setHistoryMinJobs] = useState('2');
+  const [historyMaxPerType, setHistoryMaxPerType] = useState('100');
+
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [isInviting, setIsInviting] = useState(false);
@@ -139,6 +144,18 @@ export default function SettingsPage() {
             settingsData.hourly_rate !== null && settingsData.hourly_rate !== undefined
               ? String(settingsData.hourly_rate)
               : ''
+          );
+          setHistorySamples(
+            settingsData.history_samples != null ? String(settingsData.history_samples) : '3'
+          );
+          setHistoryWindowMonths(
+            settingsData.history_window_months != null ? String(settingsData.history_window_months) : '18'
+          );
+          setHistoryMinJobs(
+            settingsData.history_min_jobs != null ? String(settingsData.history_min_jobs) : '2'
+          );
+          setHistoryMaxPerType(
+            settingsData.history_max_per_type != null ? String(settingsData.history_max_per_type) : '100'
           );
         }
       }
@@ -232,6 +249,11 @@ export default function SettingsPage() {
       const parsedMarkup = markupPercent.trim() === '' ? null : Number(markupPercent);
       const parsedHourlyRate = hourlyRate.trim() === '' ? null : Number(hourlyRate);
 
+      const parsedHistorySamples = historySamples.trim() === '' ? null : Number(historySamples);
+      const parsedHistoryWindow = historyWindowMonths.trim() === '' ? null : Number(historyWindowMonths);
+      const parsedHistoryMin = historyMinJobs.trim() === '' ? null : Number(historyMinJobs);
+      const parsedHistoryMax = historyMaxPerType.trim() === '' ? null : Number(historyMaxPerType);
+
       const response = await fetch('/api/workspaces/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -239,6 +261,10 @@ export default function SettingsPage() {
           tax_rate_percent: Number.isFinite(parsedTaxRate) ? parsedTaxRate : null,
           markup_percent: Number.isFinite(parsedMarkup) ? parsedMarkup : null,
           hourly_rate: Number.isFinite(parsedHourlyRate) ? parsedHourlyRate : null,
+          history_samples: Number.isFinite(parsedHistorySamples) ? parsedHistorySamples : null,
+          history_window_months: Number.isFinite(parsedHistoryWindow) ? parsedHistoryWindow : null,
+          history_min_jobs: Number.isFinite(parsedHistoryMin) ? parsedHistoryMin : null,
+          history_max_per_type: Number.isFinite(parsedHistoryMax) ? parsedHistoryMax : null,
         }),
       });
 
@@ -514,6 +540,86 @@ export default function SettingsPage() {
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Only admins can update these values.
                     </p>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Estimate Learning
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Controls how many historical jobs are used to calibrate future estimates.
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Reference jobs per estimate (1–10)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        step="1"
+                        value={historySamples}
+                        onChange={(e) => setHistorySamples(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="3"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        History window (months, 1–60)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        step="1"
+                        value={historyWindowMonths}
+                        onChange={(e) => setHistoryWindowMonths(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="18"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Min jobs before history is used (1–10)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        step="1"
+                        value={historyMinJobs}
+                        onChange={(e) => setHistoryMinJobs(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Max stored jobs per type (10–500)
+                      </label>
+                      <input
+                        type="number"
+                        min="10"
+                        max="500"
+                        step="1"
+                        value={historyMaxPerType}
+                        onChange={(e) => setHistoryMaxPerType(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="100"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        When this limit is reached, the oldest jobs of that type are automatically removed from history.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleSaveSettings}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Save Estimate Learning
+                    </button>
                   </div>
                 </div>
 

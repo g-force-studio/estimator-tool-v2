@@ -1,5 +1,5 @@
 Current focus:
-- Prompt quality: quantity estimation rules added (v3). Photo edit fix committed. Ready to push.
+- Estimate actuals / historical learning loop built. Migration 20260328_add_estimate_actuals.sql must be run in Supabase SQL editor before deploying estimate-worker.
 
 What's working:
 - Batch pricing search deployed (search_pricing_candidates_batch RPC, one round-trip vs N sequential).
@@ -20,14 +20,20 @@ What's broken / pending:
 - generate-pdf Edge Function needs to be deployed.
 - npm run build not re-run after latest changes.
 - Migration 20260328_update_gc_prompt_quantity_guidance.sql needs to be run in Supabase SQL editor.
+- Migration 20260328_add_estimate_actuals.sql needs to be run in Supabase SQL editor (NEW — required before deploying estimate-worker).
 
 Latest files touched:
-- supabase/migrations/20260328_update_gc_prompt_quantity_guidance.sql (new)
-- app/jobs/[id]/page.tsx (existing photos shown in edit mode)
-- public/sw.js (self-unregistering stub)
+- supabase/migrations/20260328_add_estimate_actuals.sql (new)
+- supabase/functions/estimate-worker/index.ts (history detection + fetch + actuals upsert)
+- app/api/jobs/[id]/actuals/route.ts (new GET/PUT route)
+- lib/validations.ts (history fields in workspaceSettingsSchema)
+- app/api/workspaces/settings/route.ts (history fields in upsert)
+- app/settings/page.tsx (Estimate Learning card)
+- app/jobs/[id]/page.tsx (actuals state + UI section)
+- lib/supabase/database.types.ts (estimate_actuals table + get_history_reference RPC + workspace_settings history columns)
 - code_state.txt
 
-Pending commits to push (11 commits ahead of origin):
+Pending commits to push (11+ commits ahead of origin):
 - 360d198 Batch pricing search: N sequential RPCs → 1 round-trip
 - 97c495c Remove GiST index from batch pricing migration
 - 79af1c5 Make pricing_materials.workspace_id nullable (global catalog)
@@ -38,11 +44,13 @@ Pending commits to push (11 commits ahead of origin):
 - f0d4477 Update session notes and state snapshot for 2026-03-28
 - ff1228d Show existing photos when editing a submitted job
 - (next) GC prompt v3: quantity estimation rules
+- (next) Estimate actuals / historical learning loop
 
 Next concrete steps:
 1) Run migration 20260328_update_gc_prompt_quantity_guidance.sql in Supabase SQL editor.
-2) Add missing fixture/appliance items to pricing_materials in Supabase.
-3) supabase functions deploy estimate-worker
-4) supabase functions deploy generate-pdf
-5) npm run build — confirm clean.
-6) git push
+2) Run migration 20260328_add_estimate_actuals.sql in Supabase SQL editor.
+3) Add missing fixture/appliance items to pricing_materials in Supabase.
+4) supabase functions deploy estimate-worker
+5) supabase functions deploy generate-pdf
+6) npm run build — confirm clean.
+7) git push

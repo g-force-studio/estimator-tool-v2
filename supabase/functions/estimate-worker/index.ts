@@ -8,6 +8,74 @@ const DRAFT_MODEL = 'gpt-4.1-mini';
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 const CONFIDENCE_THRESHOLD = 0.25;
 
+const JOB_TYPE_PATTERNS: Array<[RegExp, string]> = [
+  [/kitchen|cabinet|countertop|range|appliance/i, 'kitchen-remodel'],
+  [/bathroom|bath\b|shower|toilet|vanity/i, 'bathroom-remodel'],
+  [/\bfloor|tile|hardwood|carpet|lvp|laminate/i, 'flooring'],
+  [/\broof|shingle|gutter|soffit/i, 'roofing'],
+  [/\bdeck|patio|pergola|fence/i, 'deck-build'],
+  [/addition|sunroom|garage/i, 'addition'],
+  [/\bpaint/i, 'painting'],
+  [/drywall|sheetrock|plaster/i, 'drywall'],
+  [/window|entry door/i, 'window-door'],
+  [/renovation|gut\s+remodel|full remodel/i, 'full-renovation'],
+];
+
+function detectJobType(title: string, description: string): string {
+  const text = `${title} ${description}`;
+  for (const [pattern, type] of JOB_TYPE_PATTERNS) {
+    if (pattern.test(text)) return type;
+  }
+  return 'other';
+}
+
+type HistoryRow = {
+  job_type: string;
+  job_title: string | null;
+  sqft_estimate: number | null;
+  estimated_materials: Array<{ item: string; qty: number }> | null;
+  actual_materials: Array<{ item: string; qty: number }> | null;
+  estimated_labor_hours: number | null;
+  actual_labor_hours: number | null;
+};
+
+function buildHistoryReference(rows: HistoryRow[] | null): string {
+  if (!rows || rows.length === 0) return '';
+
+  // Aggregate average quantities per material item across historical jobs.
+  const matTotals = new Map<string, { sum: number; count: number }>();
+  let totalLaborHours = 0;
+  let laborCount = 0;
+
+  for (const row of rows) {
+    const mats = row.actual_materials ?? row.estimated_materials ?? [];
+    for (const m of mats) {
+      const key = (m.item || '').trim().toUpperCase();
+      if (!key) continue;
+      const existing = matTotals.get(key) ?? { sum: 0, count: 0 };
+      matTotals.set(key, { sum: existing.sum + (m.qty ?? 0), count: existing.count + 1 });
+    }
+    const hrs = row.actual_labor_hours ?? row.estimated_labor_hours;
+    if (hrs != null && hrs > 0) { totalLaborHours += hrs; laborCount += 1; }
+  }
+
+  const matLines = Array.from(matTotals.entries())
+    .slice(0, 12)
+    .map(([item, { sum, count }]) => `    ${item}: avg ${(sum / count).toFixed(1)}`)
+    .join('\n');
+
+  const avgLabor = laborCount > 0 ? (totalLaborHours / laborCount).toFixed(0) : null;
+  const laborLine = avgLabor ? `  Total labor hours: avg ${avgLabor}h across ${laborCount} job(s)` : '';
+
+  return [
+    `HISTORICAL REFERENCE (${rows.length} similar ${rows[0].job_type} job(s) from your workspace):`,
+    'Use these averages to calibrate quantities — scale up/down for this job\'s size:',
+    matLines,
+    laborLine,
+    '  Note: actuals used when available; otherwise AI estimates.',
+  ].filter(Boolean).join('\n');
+}
+
 // @ts-expect-error Deno global is only available in edge runtime.
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 // @ts-expect-error Deno global is only available in edge runtime.
@@ -438,6 +506,9 @@ serve(async (req) => {
     const taxRate = Number(settings?.tax_rate_percent ?? 0);
     const markupPercent = Number(settings?.markup_percent ?? 0);
     const hourlyRate = Number(settings?.hourly_rate ?? 0);
+    const historySamples = Number((settings as Record<string, unknown>)?.history_samples ?? 3);
+    const historyWindowMonths = Number((settings as Record<string, unknown>)?.history_window_months ?? 18);
+    const historyMinJobs = Number((settings as Record<string, unknown>)?.history_min_jobs ?? 2);
 
     const { data: workspaceData } = await supabaseAdmin
       .from('workspaces')
@@ -478,12 +549,20 @@ serve(async (req) => {
     const workspaceTrade =
       (workspaceData?.trade as WorkspacePromptResult['trade']) ?? 'general_contractor';
 
-    // Fetch workspace prompt and catalog samples concurrently.
-    const [promptResult, catalogSamplesResult] = await Promise.all([
+    const jobType = detectJobType(job.title ?? '', job.description_md ?? '');
+
+    // Fetch workspace prompt, catalog samples, and history reference concurrently.
+    const [promptResult, catalogSamplesResult, historyResult] = await Promise.all([
       getWorkspacePrompt(job.workspace_id, workspaceTrade, customerId),
       supabaseAdmin.rpc('get_catalog_category_samples', {
         p_trade: workspaceTrade,
         samples_per_category: 3,
+      }),
+      supabaseAdmin.rpc('get_history_reference', {
+        p_workspace_id: job.workspace_id,
+        p_job_type: jobType,
+        p_limit: historySamples,
+        p_window_months: historyWindowMonths,
       }),
     ]);
 
@@ -491,6 +570,11 @@ serve(async (req) => {
     const catalogReference = buildCatalogReference(
       catalogSamplesResult.data as Array<{ category: string; item_key: string }> | null
     );
+    const historyRows = historyResult.data as HistoryRow[] | null;
+    const historyReference =
+      historyRows && historyRows.length >= historyMinJobs
+        ? buildHistoryReference(historyRows)
+        : '';
 
     const userText = [
       `Job title: ${job.title}`,
@@ -501,6 +585,7 @@ serve(async (req) => {
       `Existing line items: ${JSON.stringify(lineItems)}`,
       'Use the photos to identify fixtures/materials and include key observations in image_analysis.',
       catalogReference,
+      historyReference,
     ].filter(Boolean).join('\n');
 
     const userContent: Array<{ type: string; text?: string; image_url?: string }> = [
@@ -703,6 +788,27 @@ serve(async (req) => {
       .insert({ job_id: jobId, ai_json: aiJson });
 
     if (aiError) throw aiError;
+
+    // Auto-populate estimate_actuals for historical reference.
+    // Uses upsert on job_id so re-runs overwrite rather than duplicate.
+    const estimatedLaborHours = labor.reduce((sum, l) => sum + l.hours, 0);
+    const estimatedMaterialsSnapshot = pricedMaterials.map((m) => ({
+      item: m.item,
+      qty: m.qty,
+    }));
+    await supabaseAdmin.from('estimate_actuals').upsert(
+      {
+        workspace_id: job.workspace_id,
+        job_id: jobId,
+        job_type: jobType,
+        trade: promptResult.trade,
+        job_title: job.title ?? null,
+        job_description: job.description_md ?? null,
+        estimated_materials: estimatedMaterialsSnapshot,
+        estimated_labor_hours: estimatedLaborHours > 0 ? estimatedLaborHours : null,
+      },
+      { onConflict: 'job_id', ignoreDuplicates: false }
+    ).select('id').maybeSingle();
 
     await supabaseAdmin
       .from('jobs')

@@ -68,6 +68,10 @@ export async function PUT(request: NextRequest) {
         tax_rate_percent: validated.tax_rate_percent ?? 0,
         markup_percent: validated.markup_percent ?? 0,
         hourly_rate: validated.hourly_rate ?? 0,
+        ...(validated.history_samples !== undefined && { history_samples: validated.history_samples }),
+        ...(validated.history_window_months !== undefined && { history_window_months: validated.history_window_months }),
+        ...(validated.history_min_jobs !== undefined && { history_min_jobs: validated.history_min_jobs }),
+        ...(validated.history_max_per_type !== undefined && { history_max_per_type: validated.history_max_per_type }),
       })
       .select()
       .single();
