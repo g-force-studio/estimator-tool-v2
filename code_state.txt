@@ -1,56 +1,63 @@
 Current focus:
-- Estimate actuals / historical learning loop built. Migration 20260328_add_estimate_actuals.sql must be run in Supabase SQL editor before deploying estimate-worker.
+- Historical learning loop and prompt accuracy improvements shipped. GitHub up to date.
+  estimate-worker deployment still needs confirmation. Missing catalog items remain.
 
 What's working:
-- Batch pricing search deployed (search_pricing_candidates_batch RPC, one round-trip vs N sequential).
+- Batch pricing search (search_pricing_candidates_batch RPC, one round-trip vs N sequential).
 - 7,308 general contractor catalog rows imported into pricing_materials.
 - Catalog reference injected into AI prompt so AI uses catalog-format item names.
 - Confidence threshold set to 0.25 (filters false matches, captures correct ~0.26+ scores).
 - pg_trgm and vector extensions enabled in Supabase.
 - Middleware auth timeout (5s) prevents dev server from hanging on slow Supabase responses.
 - Dev server working locally (old workbox SW replaced with self-unregistering stub).
-- Estimates generating successfully end-to-end (tested with kitchen remodel).
+- GC prompt v3 with quantity estimation rules (waste factors, dimension-basis, flag unconfirmed).
 - Edit mode now shows existing job photos (job.photos grid above file input).
-- GC prompt v3: quantity rules, waste factors, dimension-basis requirement, flag uncertain quantities in jobNotes.
+- Estimate actuals system: auto-populates estimate_actuals after every estimate, survives job deletion.
+- Historical reference injection: fetches similar past jobs, injects averaged quantities into AI prompt.
+- Job Actuals UI: collapsible section on job detail for entering actual quantities post-completion.
+- Settings: "Estimate Learning" card for configuring history_samples, window, min_jobs, max_per_type.
+- npm run build passes clean.
+- GitHub fully up to date (origin/main = fc6760a).
+- Netlify deployed via: netlify deploy --build --prod.
 
 What's broken / pending:
-- pricing_materials catalog is missing fixture/appliance items: cabinets, sinks, faucets,
-  countertops, doors, windows, GFCI OUTLET, DIMMER SWITCH, JACK STUDS 2X4, LAMINATED LUMBER.
-  These must be added manually with real prices.
-- generate-pdf Edge Function needs to be deployed.
-- npm run build not re-run after latest changes.
-- Migration 20260328_update_gc_prompt_quantity_guidance.sql needs to be run in Supabase SQL editor.
-- Migration 20260328_add_estimate_actuals.sql needs to be run in Supabase SQL editor (NEW — required before deploying estimate-worker).
+- estimate-worker Edge Function deployment status uncertain — run to confirm/update:
+    supabase functions deploy estimate-worker
+- generate-pdf Edge Function needs to be deployed:
+    supabase functions deploy generate-pdf
+- pricing_materials catalog is missing fixture/appliance items:
+    cabinets, sinks, faucets, countertops, doors, windows,
+    GFCI OUTLET, DIMMER SWITCH, JACK STUDS 2X4, LAMINATED LUMBER
+    These must be added manually with real prices.
+- Historical learning loop has no data yet — needs 2+ completed jobs of the same type before
+  it begins injecting references (controlled by history_min_jobs setting, default 2).
+
+Migrations run in Supabase (all confirmed):
+- 20260217_add_estimate_queue_and_pricing_search.sql
+- 20260323_add_batch_pricing_search.sql
+- 20260324_make_pricing_materials_global.sql
+- 20260327_update_gc_prompt_and_catalog_rpc.sql
+- 20260328_update_gc_prompt_quantity_guidance.sql
+- 20260328_add_estimate_actuals.sql
 
 Latest files touched:
-- supabase/migrations/20260328_add_estimate_actuals.sql (new)
-- supabase/functions/estimate-worker/index.ts (history detection + fetch + actuals upsert)
-- app/api/jobs/[id]/actuals/route.ts (new GET/PUT route)
-- lib/validations.ts (history fields in workspaceSettingsSchema)
-- app/api/workspaces/settings/route.ts (history fields in upsert)
-- app/settings/page.tsx (Estimate Learning card)
-- app/jobs/[id]/page.tsx (actuals state + UI section)
-- lib/supabase/database.types.ts (estimate_actuals table + get_history_reference RPC + workspace_settings history columns)
+- supabase/migrations/20260328_update_gc_prompt_quantity_guidance.sql
+- supabase/migrations/20260328_add_estimate_actuals.sql
+- supabase/functions/estimate-worker/index.ts
+- app/api/jobs/[id]/actuals/route.ts (new)
+- app/api/workspaces/settings/route.ts
+- app/settings/page.tsx
+- app/jobs/[id]/page.tsx
+- lib/validations.ts
+- lib/supabase/database.types.ts
+- NOTES.md
 - code_state.txt
 
-Pending commits to push (11+ commits ahead of origin):
-- 360d198 Batch pricing search: N sequential RPCs → 1 round-trip
-- 97c495c Remove GiST index from batch pricing migration
-- 79af1c5 Make pricing_materials.workspace_id nullable (global catalog)
-- cd155da Inject pricing catalog reference into AI prompt
-- cc4605c Fix migration errors and add middleware auth timeout
-- 507866d Lower pricing confidence threshold from 0.35 to 0.20
-- 2965d2d Raise pricing confidence threshold to 0.25
-- f0d4477 Update session notes and state snapshot for 2026-03-28
-- ff1228d Show existing photos when editing a submitted job
-- (next) GC prompt v3: quantity estimation rules
-- (next) Estimate actuals / historical learning loop
+All commits pushed to GitHub. No local uncommitted changes.
 
 Next concrete steps:
-1) Run migration 20260328_update_gc_prompt_quantity_guidance.sql in Supabase SQL editor.
-2) Run migration 20260328_add_estimate_actuals.sql in Supabase SQL editor.
-3) Add missing fixture/appliance items to pricing_materials in Supabase.
-4) supabase functions deploy estimate-worker
-5) supabase functions deploy generate-pdf
-6) npm run build — confirm clean.
-7) git push
+1) supabase functions deploy estimate-worker
+2) supabase functions deploy generate-pdf
+3) Submit a test job — verify estimate_actuals row appears in Supabase
+4) Add missing catalog items to pricing_materials in Supabase
+5) After 2+ jobs of same type, resubmit and confirm historical reference is injected

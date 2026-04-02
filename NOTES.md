@@ -281,6 +281,59 @@ Use this file to capture decisions, changes, and open questions after each worki
     - [ ] Run npm run build to confirm clean build
     - [ ] Push all commits to GitHub
 
+- Date/Time (2026-04-02 00:00), Session Goal: Improve estimate accuracy with quantity rules, historical learning loop, and deployment fixes
+  - What changed:
+    - GC prompt v3 (migration 20260328_update_gc_prompt_quantity_guidance.sql): added QUANTITY RULES block requiring
+      dimension-basis for every material quantity, standard waste factors (10% flooring/tile, 15% drywall/framing),
+      coverage-based paint calculation, and a rule to flag unconfirmed quantities in jobNotes. Deactivates v1/v2.
+    - Photo edit fix (app/jobs/[id]/page.tsx): edit mode was not rendering job.photos (already-saved Supabase files).
+      Added "Existing photos" grid above the file input that maps over job.photos.
+    - Estimate actuals / historical learning loop (migration 20260328_add_estimate_actuals.sql):
+      - estimate_actuals table: stores estimated and actual materials + labor hours per job. No FK to jobs —
+        records survive job deletion. workspace_id is the only cascade-delete reference. job_id stored as
+        nullable reference with no constraint.
+      - workspace_settings extended: 4 new columns — history_samples (default 3), history_window_months (default 18),
+        history_min_jobs (default 2), history_max_per_type (default 100).
+      - get_history_reference RPC: returns N recent non-excluded jobs for a given workspace + job_type within window.
+      - enforce_estimate_actuals_cap trigger: after each insert, deletes oldest rows beyond history_max_per_type
+        for that workspace + job type.
+      - estimate-worker: detectJobType() keyword classifier assigns job_type from title/description (15 patterns).
+        History fetched concurrently with prompt + catalog. buildHistoryReference() averages material quantities
+        across historical jobs (preferring actuals over estimates) and injects a compact block into the AI user
+        message when history_min_jobs threshold is met. After ai_outputs insert, upserts estimate_actuals row
+        keyed on job_id.
+      - New API: GET/PUT /api/jobs/[id]/actuals for fetching and saving actual quantities + exclude flag.
+      - Settings UI: "Estimate Learning" card with 4 configurable inputs (samples, window, min jobs, max per type).
+      - Job detail UI: collapsible "Job Actuals" section appears below estimate totals on estimated jobs.
+        Shows AI qty vs actual qty per material, total labor hours comparison, exclude-from-history toggle,
+        and Save Actuals button.
+    - Netlify deploy troubleshooting: diagnosed that `netlify deploy` without `--build` uploads stale build
+      artifacts instead of rebuilding. Correct command: `netlify deploy --build --prod`.
+    - Netlify site rename: changing the site name breaks the old .netlify.app URL immediately. New URL visible
+      in Netlify dashboard. Supabase auth redirect URLs must be updated if domain changes.
+    - Migration order clarified: the two migrations are independent of each other but both must run before
+      deploying the updated estimate-worker. Deploying worker before migrations causes ai_error on all estimates.
+    - npm run build confirmed clean after all changes.
+  - Decisions made:
+    - estimate_actuals has no FK to jobs (survives deletion) but stores job_id as a nullable plain column for lookup
+    - Per-type cap enforced by trigger (reads history_max_per_type from workspace_settings at insert time)
+    - History injection degrades gracefully: if fewer than history_min_jobs exist for the type, no injection
+    - Job type detected by keyword regex, not AI call — avoids extra latency/cost
+    - "Exclude from history" toggle exposed to all workspace members (not restricted to admin)
+    - Netlify deployments must use --build --prod via CLI; dashboard "Clear cache and deploy" also works
+  - Open questions / risks:
+    - estimate-worker deployment status unclear — confirm `supabase functions deploy estimate-worker` was run
+    - generate-pdf Edge Function still not updated/deployed
+    - pricing_materials catalog still missing: cabinets, sinks, faucets, countertops, GFCI OUTLET, DIMMER SWITCH,
+      JACK STUDS 2X4, LAMINATED LUMBER — these must be added manually before estimates will price them correctly
+    - Worker will fail with ai_error if migrations were not run before deployment
+  - Next actions:
+    - [ ] Confirm estimate-worker is deployed: supabase functions deploy estimate-worker
+    - [ ] Deploy generate-pdf: supabase functions deploy generate-pdf
+    - [ ] Add missing fixture/appliance items to pricing_materials in Supabase
+    - [ ] Submit a test job and verify estimate_actuals row appears in Supabase table
+    - [ ] After 2+ jobs of same type, re-submit and confirm historical reference appears in estimate
+
 ## Known Issues
 - Issue: Job status enum mismatch across UI/back end in older data
   - Repro: Existing jobs with deprecated status values may fail validation after status enum change
